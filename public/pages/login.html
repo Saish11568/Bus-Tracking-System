@@ -1,0 +1,802 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BusTrack — Sign In</title>
+    <script src="https://unpkg.com/@phosphor-icons/web@2.1.1/src/index.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg:        #090B10;
+            --surface:   #10141E;
+            --border:    #1E2438;
+            --border2:   #2D344F;
+            --text:      #EEF2FF;
+            --muted:     #5C6580;
+            --muted2:    #8892B0;
+
+            /* Student - Blue */
+            --s-accent:  #4F6FFF;
+            --s-accent2: #7C3AED;
+            --s-glow:    rgba(79,111,255,0.22);
+            --s-bg:      rgba(79,111,255,0.08);
+            --s-border:  rgba(79,111,255,0.3);
+
+            /* Driver - Green */
+            --d-accent:  #00C98B;
+            --d-accent2: #059669;
+            --d-glow:    rgba(0,201,139,0.22);
+            --d-bg:      rgba(0,201,139,0.08);
+            --d-border:  rgba(0,201,139,0.3);
+
+            /* Admin - Amber */
+            --a-accent:  #F59E0B;
+            --a-accent2: #D97706;
+            --a-glow:    rgba(245,158,11,0.22);
+            --a-bg:      rgba(245,158,11,0.08);
+            --a-border:  rgba(245,158,11,0.3);
+
+            --danger:    #EF4444;
+        }
+
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'DM Sans', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* Grid background */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background-image:
+                linear-gradient(rgba(79,111,255,0.04) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(79,111,255,0.04) 1px, transparent 1px);
+            background-size: 52px 52px;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* Ambient orbs */
+        .orb {
+            position: fixed;
+            border-radius: 50%;
+            filter: blur(100px);
+            pointer-events: none;
+            animation: drift 16s ease-in-out infinite alternate;
+            z-index: 0;
+        }
+        .orb-1 { width: 500px; height: 500px; background: rgba(79,111,255,0.09); top: -160px; left: -160px; }
+        .orb-2 { width: 400px; height: 400px; background: rgba(0,201,139,0.07); bottom: -120px; right: -100px; animation-delay: -6s; }
+        .orb-3 { width: 250px; height: 250px; background: rgba(245,158,11,0.06); top: 60%; left: 60%; animation-delay: -11s; }
+        @keyframes drift {
+            from { transform: translate(0,0) scale(1); }
+            to   { transform: translate(32px, 20px) scale(1.08); }
+        }
+
+        /* ── Wrapper ── */
+        .wrapper {
+            position: relative;
+            z-index: 1;
+            width: 100%;
+            max-width: 480px;
+            padding: 24px 16px;
+        }
+
+        /* ── Logo ── */
+        .logo-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 36px;
+            justify-content: center;
+        }
+        .logo-icon {
+            width: 46px;
+            height: 46px;
+            background: linear-gradient(135deg, var(--s-accent), var(--s-accent2));
+            border-radius: 13px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 0 24px rgba(79,111,255,0.35);
+            flex-shrink: 0;
+        }
+        .logo-icon svg { width: 24px; height: 24px; fill: #fff; }
+        .logo-text h1 { font-size: 22px; font-weight: 700; letter-spacing: -0.4px; }
+        .logo-text span { font-size: 12px; color: var(--muted2); display: block; margin-top: 1px; }
+
+        /* ── Role switcher ── */
+        .role-switcher {
+            display: flex;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 4px;
+            gap: 4px;
+            margin-bottom: 28px;
+        }
+        .role-tab {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 7px;
+            padding: 10px 8px;
+            border-radius: 10px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            background: transparent;
+            color: var(--muted2);
+            font-family: 'DM Sans', sans-serif;
+            transition: all 0.22s ease;
+            position: relative;
+        }
+        .role-tab svg { width: 16px; height: 16px; flex-shrink: 0; }
+        .role-tab:hover { color: var(--text); background: rgba(255,255,255,0.04); }
+
+        .role-tab[data-role="student"].active {
+            background: var(--s-bg);
+            color: var(--s-accent);
+            border: 1px solid var(--s-border);
+        }
+        .role-tab[data-role="driver"].active {
+            background: var(--d-bg);
+            color: var(--d-accent);
+            border: 1px solid var(--d-border);
+        }
+        .role-tab[data-role="admin"].active {
+            background: var(--a-bg);
+            color: var(--a-accent);
+            border: 1px solid var(--a-border);
+        }
+
+        /* ── Login card ── */
+        .login-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            padding: 36px 32px 32px;
+            box-shadow: 0 32px 80px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.03);
+            animation: slideUp 0.45s cubic-bezier(0.16,1,0.3,1) both;
+            position: relative;
+            overflow: hidden;
+        }
+        .login-card::before {
+            content: '';
+            position: absolute;
+            top: -80px; right: -80px;
+            width: 220px; height: 220px;
+            border-radius: 50%;
+            opacity: 0.07;
+            pointer-events: none;
+            transition: background 0.3s;
+        }
+        .login-card.student::before { background: var(--s-accent); }
+        .login-card.driver::before  { background: var(--d-accent); }
+        .login-card.admin::before   { background: var(--a-accent); }
+
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(20px) scale(0.98); }
+            to   { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        /* Card header */
+        .card-header {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 28px;
+        }
+        .card-avatar {
+            width: 52px;
+            height: 52px;
+            border-radius: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            transition: background 0.3s, box-shadow 0.3s;
+        }
+        .card-avatar svg { width: 26px; height: 26px; }
+
+        .login-card.student .card-avatar {
+            background: var(--s-bg);
+            box-shadow: 0 0 20px var(--s-glow);
+            color: var(--s-accent);
+        }
+        .login-card.driver .card-avatar {
+            background: var(--d-bg);
+            box-shadow: 0 0 20px var(--d-glow);
+            color: var(--d-accent);
+        }
+        .login-card.admin .card-avatar {
+            background: var(--a-bg);
+            box-shadow: 0 0 20px var(--a-glow);
+            color: var(--a-accent);
+        }
+
+        .login-card.student .card-avatar svg { fill: var(--s-accent); }
+        .login-card.driver .card-avatar svg  { fill: var(--d-accent); }
+        .login-card.admin .card-avatar svg   { fill: var(--a-accent); }
+
+        .card-heading h2 { font-size: 22px; font-weight: 700; letter-spacing: -0.4px; }
+        .card-heading p  { font-size: 13.5px; color: var(--muted2); margin-top: 3px; }
+
+        /* ── Role accent line ── */
+        .accent-bar {
+            height: 2px;
+            border-radius: 2px;
+            margin-bottom: 24px;
+            transition: background 0.3s;
+        }
+        .login-card.student .accent-bar { background: linear-gradient(90deg, var(--s-accent), var(--s-accent2)); }
+        .login-card.driver .accent-bar  { background: linear-gradient(90deg, var(--d-accent), var(--d-accent2)); }
+        .login-card.admin .accent-bar   { background: linear-gradient(90deg, var(--a-accent), var(--a-accent2)); }
+
+        /* ── Fields ── */
+        .field { margin-bottom: 16px; }
+        .field label {
+            display: block;
+            font-size: 11.5px;
+            font-weight: 600;
+            color: var(--muted2);
+            letter-spacing: 0.4px;
+            text-transform: uppercase;
+            margin-bottom: 7px;
+        }
+        .field-wrap { position: relative; }
+        .field-wrap .fi {
+            position: absolute;
+            left: 14px; top: 50%;
+            transform: translateY(-50%);
+            pointer-events: none;
+            color: var(--muted);
+            display: flex; align-items: center;
+        }
+        .field-wrap .fi svg { width: 18px; height: 18px; fill: currentColor; }
+        .field-wrap input {
+            width: 100%;
+            background: rgba(255,255,255,0.04);
+            border: 1.5px solid var(--border);
+            border-radius: 12px;
+            padding: 13px 14px 13px 44px;
+            font-size: 14px;
+            font-family: 'DM Sans', sans-serif;
+            color: var(--text);
+            outline: none;
+            transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+        }
+        .field-wrap input::placeholder { color: var(--muted); }
+
+        .login-card.student .field-wrap input:focus { border-color: var(--s-accent); box-shadow: 0 0 0 3px rgba(79,111,255,0.12); background: rgba(79,111,255,0.04); }
+        .login-card.driver .field-wrap input:focus  { border-color: var(--d-accent); box-shadow: 0 0 0 3px rgba(0,201,139,0.12);  background: rgba(0,201,139,0.04); }
+        .login-card.admin .field-wrap input:focus   { border-color: var(--a-accent); box-shadow: 0 0 0 3px rgba(245,158,11,0.12); background: rgba(245,158,11,0.04); }
+
+        .pw-toggle {
+            position: absolute;
+            right: 13px; top: 50%;
+            transform: translateY(-50%);
+            background: none; border: none;
+            color: var(--muted);
+            cursor: pointer;
+            display: flex; align-items: center;
+            padding: 4px;
+            border-radius: 6px;
+            transition: color 0.15s;
+        }
+        .pw-toggle:hover { color: var(--text); }
+        .pw-toggle svg { width: 18px; height: 18px; fill: currentColor; }
+
+        /* Row */
+        .field-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 22px;
+        }
+        .checkbox-wrap {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+        }
+        .checkbox-wrap input[type="checkbox"] {
+            width: 15px; height: 15px;
+            border-radius: 4px;
+            accent-color: var(--s-accent);
+            cursor: pointer;
+        }
+        .login-card.driver .checkbox-wrap input { accent-color: var(--d-accent); }
+        .login-card.admin  .checkbox-wrap input { accent-color: var(--a-accent); }
+        .checkbox-wrap span { font-size: 13px; color: var(--muted2); }
+        .forgot-link { font-size: 13px; font-weight: 600; text-decoration: none; transition: opacity 0.15s; }
+        .login-card.student .forgot-link { color: var(--s-accent); }
+        .login-card.driver .forgot-link  { color: var(--d-accent); }
+        .login-card.admin .forgot-link   { color: var(--a-accent); }
+        .forgot-link:hover { opacity: 0.7; }
+
+        /* ── Submit button ── */
+        .submit-btn {
+            width: 100%;
+            padding: 14px;
+            border: none;
+            border-radius: 12px;
+            color: #fff;
+            font-size: 15px;
+            font-weight: 700;
+            font-family: 'DM Sans', sans-serif;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: opacity 0.2s, transform 0.15s;
+            margin-bottom: 20px;
+        }
+        .submit-btn:hover { opacity: 0.88; transform: translateY(-1px); }
+        .submit-btn:active { transform: translateY(0); }
+        .login-card.student .submit-btn { background: linear-gradient(135deg, var(--s-accent), var(--s-accent2)); box-shadow: 0 8px 28px rgba(79,111,255,0.32); }
+        .login-card.driver .submit-btn  { background: linear-gradient(135deg, var(--d-accent), var(--d-accent2)); box-shadow: 0 8px 28px rgba(0,201,139,0.32); }
+        .login-card.admin .submit-btn   { background: linear-gradient(135deg, var(--a-accent), var(--a-accent2)); box-shadow: 0 8px 28px rgba(245,158,11,0.32); }
+
+        .submit-btn svg { width: 18px; height: 18px; fill: #fff; }
+
+        /* Spinner */
+        .spinner {
+            width: 17px; height: 17px;
+            border: 2.5px solid rgba(255,255,255,0.35);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin 0.65s linear infinite;
+            display: none;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ── Error ── */
+        .error-msg {
+            display: none;
+            align-items: center;
+            gap: 9px;
+            margin-top: -8px;
+            margin-bottom: 16px;
+            padding: 11px 14px;
+            background: rgba(239,68,68,0.08);
+            border: 1px solid rgba(239,68,68,0.2);
+            border-radius: 10px;
+            font-size: 13px;
+            color: var(--danger);
+        }
+        .error-msg.show { display: flex; }
+        .error-msg svg { width: 16px; height: 16px; fill: var(--danger); flex-shrink: 0; }
+
+        /* ── Footer info ── */
+        .card-footer {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 7px;
+            font-size: 12px;
+            color: var(--muted);
+        }
+        .card-footer svg { width: 14px; height: 14px; fill: var(--muted); }
+
+        /* ── Demo hint ── */
+        .demo-hint {
+            margin-top: 20px;
+            padding: 13px 16px;
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: 13px;
+        }
+        .demo-title {
+            font-size: 10px;
+            font-weight: 700;
+            color: var(--muted);
+            letter-spacing: 0.8px;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+        }
+        .demo-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 5px 0;
+        }
+        .demo-row:not(:last-child) { border-bottom: 1px solid var(--border); padding-bottom: 9px; margin-bottom: 1px; }
+        .demo-role { font-size: 12px; font-weight: 600; min-width: 58px; }
+        .demo-creds { font-size: 11.5px; color: var(--muted2); font-family: 'DM Mono', monospace; flex-grow: 1; }
+        .demo-fill {
+            font-size: 11.5px;
+            background: rgba(79,111,255,0.1);
+            color: var(--s-accent);
+            border: none;
+            border-radius: 6px;
+            padding: 3px 9px;
+            cursor: pointer;
+            font-family: 'DM Sans', sans-serif;
+            font-weight: 600;
+            transition: background 0.15s;
+            white-space: nowrap;
+        }
+        .login-card.driver  .demo-fill { background: rgba(0,201,139,0.1); color: var(--d-accent); }
+        .login-card.admin   .demo-fill { background: rgba(245,158,11,0.1); color: var(--a-accent); }
+        .demo-fill:hover { opacity: 0.8; }
+
+        /* Role-panel animation */
+        .role-panel { display: none; animation: fadeIn 0.25s ease both; }
+        .role-panel.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body>
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+
+    <div class="wrapper">
+        <!-- Logo -->
+        <div class="logo-row">
+            <div class="logo-icon">
+                <!-- Bus SVG -->
+                <svg viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg"><path d="M234,112H222V72a22,22,0,0,0-22-22H56A22,22,0,0,0,34,72v40H22a6,6,0,0,0,0,12H34v60a14,14,0,0,0,14,14v10a6,6,0,0,0,12,0V198H196v10a6,6,0,0,0,12,0V198a14,14,0,0,0,14-14V124h12a6,6,0,0,0,0-12ZM56,62H200a10,10,0,0,1,10,10v30H46V72A10,10,0,0,1,56,62ZM210,184a2,2,0,0,1-2,2H48a2,2,0,0,1-2-2V114H210Zm-148-26a10,10,0,1,1,10,10A10,10,0,0,1,62,158Zm72,0a10,10,0,1,1,10,10A10,10,0,0,1,134,158Z"/></svg>
+            </div>
+            <div class="logo-text">
+                <h1>BusTrack</h1>
+                <span>Jain College of Engineering and Research | JCER</span>
+            </div>
+        </div>
+
+        <!-- Role Switcher -->
+        <div class="role-switcher">
+            <button class="role-tab active" data-role="student">
+                <!-- GraduationCap -->
+                <svg viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg" fill="currentColor"><path d="M226.53,56.41l-96-32a8,8,0,0,0-5.06,0l-96,32A8,8,0,0,0,24,64v80a8,8,0,0,0,16,0V75.1L73.59,86.29A88.18,88.18,0,0,0,40,156c0,22,8.67,39.71,25.07,51.29A109.75,109.75,0,0,0,128,224a109.75,109.75,0,0,0,62.93-16.71C207.33,195.71,216,178,216,156a88.18,88.18,0,0,0-33.59-69.71l44.12-14.71a8,8,0,0,0,0-15.17ZM128,208c-43.68,0-72-21.35-72-52a72,72,0,0,1,144,0C200,186.65,171.68,208,128,208Z"/></svg>
+                Student
+            </button>
+            <button class="role-tab" data-role="driver">
+                <!-- SteeringWheel -->
+                <svg viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg" fill="currentColor"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm88,104a87.55,87.55,0,0,1-8.39,37.4L152,140.31V120a24,24,0,0,0-48,0v20.31L47.39,165.4A88,88,0,0,1,40,128a88.1,88.1,0,0,1,84-87.88V56a8,8,0,0,0,16,0V40.12A88.1,88.1,0,0,1,216,128Zm-88,16a8,8,0,0,1-8-8V120a8,8,0,0,1,16,0v16A8,8,0,0,1,128,144Zm-72.19,39.32L113,156.05A23.89,23.89,0,0,0,128,160a23.89,23.89,0,0,0,15-4l57.19,27.27A88,88,0,0,1,55.81,183.32Z"/></svg>
+                Driver
+            </button>
+            <button class="role-tab" data-role="admin">
+                <!-- ShieldCheck -->
+                <svg viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg" fill="currentColor"><path d="M208,40H48A16,16,0,0,0,32,56V136c0,88,88,112,88,112s88-24,88-112V56A16,16,0,0,0,208,40Zm0,96c0,72.34-68.55,95.68-80,99.38C116.55,231.68,48,208.34,48,136V56H208ZM82.34,141.66a8,8,0,0,1,11.32-11.32L112,148.69l50.34-50.35a8,8,0,0,1,11.32,11.32l-56,56a8,8,0,0,1-11.32,0Z"/></svg>
+                Admin
+            </button>
+        </div>
+
+        <!-- Login Card -->
+        <div class="login-card student" id="loginCard">
+
+            <!-- Student Panel -->
+            <div class="role-panel active" id="panel-student">
+                <div class="card-header">
+                    <div class="card-avatar">
+                        <svg viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg"><path d="M226.53,56.41l-96-32a8,8,0,0,0-5.06,0l-96,32A8,8,0,0,0,24,64v80a8,8,0,0,0,16,0V75.1L73.59,86.29A88.18,88.18,0,0,0,40,156c0,22,8.67,39.71,25.07,51.29A109.75,109.75,0,0,0,128,224a109.75,109.75,0,0,0,62.93-16.71C207.33,195.71,216,178,216,156a88.18,88.18,0,0,0-33.59-69.71l44.12-14.71a8,8,0,0,0,0-15.17ZM128,208c-43.68,0-72-21.35-72-52a72,72,0,0,1,144,0C200,186.65,171.68,208,128,208Z"/></svg>
+                    </div>
+                    <div class="card-heading">
+                        <h2>Student Login</h2>
+                        <p>Track your college bus in real time</p>
+                    </div>
+                </div>
+                <div class="accent-bar"></div>
+
+                <div class="field">
+                    <label>Email address</label>
+                    <div class="field-wrap">
+                        <span class="fi">
+                            <svg viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg"><path d="M224,48H32a8,8,0,0,0-8,8V192a16,16,0,0,0,16,16H216a16,16,0,0,0,16-16V56A8,8,0,0,0,224,48ZM203.43,64,128,133.15,52.57,64ZM216,192H40V74.19l82.59,75.71a8,8,0,0,0,10.82,0L216,74.19V192Z"/></svg>
+                        </span>
+                        <input type="email" id="s-email" placeholder="you@jcer.edu" autocomplete="email">
+                    </div>
+                </div>
+                <div class="field">
+                    <label>Password</label>
+                    <div class="field-wrap">
+                        <span class="fi">
+                            <svg viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg"><path d="M208,80H168V56a40,40,0,0,0-80,0V80H48A16,16,0,0,0,32,96V208a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V96A16,16,0,0,0,208,80ZM104,56a24,24,0,0,1,48,0V80H104ZM208,208H48V96H208V208Zm-80-48a12,12,0,1,1,12,12A12,12,0,0,1,128,160Z"/></svg>
+                        </span>
+                        <input type="password" id="s-password" placeholder="Enter your password">
+                        <button class="pw-toggle" type="button" onclick="togglePw('s-password', this)">
+                            <svg id="s-eyeIcon" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg"><path d="M247.31,124.76c-.35-.79-8.82-19.58-27.65-38.41C194.57,61.26,162.88,48,128,48S61.43,61.26,36.34,86.35C17.51,105.18,9,124,8.69,124.76a8,8,0,0,0,0,6.5c.35.79,8.82,19.57,27.65,38.4C61.43,194.74,93.12,208,128,208s66.57-13.26,91.66-38.34c18.83-18.83,27.3-37.61,27.65-38.4A8,8,0,0,0,247.31,124.76ZM128,192c-30.78,0-57.67-11.19-79.93-33.25A133.47,133.47,0,0,1,25,128,133.33,133.33,0,0,1,48.07,97.25C70.33,75.19,97.22,64,128,64s57.67,11.19,79.93,33.25A133.46,133.46,0,0,1,231.05,128C223.84,141.46,192.43,192,128,192Zm0-112a48,48,0,1,0,48,48A48.05,48.05,0,0,0,128,80Zm0,80a32,32,0,1,1,32-32A32,32,0,0,1,128,160Z"/></svg>
+                        </button>
+                    </div>
+                </div>
+                <div class="field-row">
+                    <label class="checkbox-wrap">
+                        <input type="checkbox"> <span>Remember me</span>
+                    </label>
+                    <a href="#" class="forgot-link">Forgot password?</a>
+                </div>
+                <div class="error-msg" id="s-error">
+                    <svg viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg"><path d="M236.8,188.09,149.35,36.22a24.76,24.76,0,0,0-42.7,0L19.2,188.09a23.51,23.51,0,0,0,0,23.72A24.35,24.35,0,0,0,40.55,224h174.9a24.35,24.35,0,0,0,21.33-12.19A23.51,23.51,0,0,0,236.8,188.09ZM120,104a8,8,0,0,1,16,0v40a8,8,0,0,1-16,0Zm8,88a12,12,0,1,1,12-12A12,12,0,0,1,128,192Z"/></svg>
+                    <span>Invalid credentials. Please check your email and password.</span>
+                </div>
+                <button class="submit-btn" onclick="doLogin('student')">
+                    <div class="spinner" id="s-spinner"></div>
+                    <span id="s-btnText">Sign In</span>
+                    <svg viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg"><path d="M221.66,133.66l-72,72a8,8,0,0,1-11.32-11.32L196.69,136H40a8,8,0,0,1,0-16H196.69L138.34,61.66a8,8,0,0,1,11.32-11.32l72,72A8,8,0,0,1,221.66,133.66Z"/></svg>
+                </button>
+                <div class="card-footer">
+                    <svg viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg"><path d="M208,80H168V56a40,40,0,0,0-80,0V80H48A16,16,0,0,0,32,96V208a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V96A16,16,0,0,0,208,80ZM104,56a24,24,0,0,1,48,0V80H104ZM208,208H48V96H208V208Zm-80-48a12,12,0,1,1,12,12A12,12,0,0,1,128,160Z"/></svg>
+                    Student access is restricted to enrolled students only.
+                </div>
+                <div class="demo-hint">
+                    <div class="demo-title">Demo Credentials</div>
+                    <div class="demo-row">
+                        <span class="demo-role">Student</span>
+                        <span class="demo-creds">student@jcer.edu / student123</span>
+                        <button class="demo-fill" onclick="fillDemo('student','student@jcer.edu','student123')">Fill</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Driver Panel -->
+            <div class="role-panel" id="panel-driver">
+                <div class="card-header">
+                    <div class="card-avatar">
+                        <svg viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm88,104a87.55,87.55,0,0,1-8.39,37.4L152,140.31V120a24,24,0,0,0-48,0v20.31L47.39,165.4A88,88,0,0,1,40,128a88.1,88.1,0,0,1,84-87.88V56a8,8,0,0,0,16,0V40.12A88.1,88.1,0,0,1,216,128Zm-88,16a8,8,0,0,1-8-8V120a8,8,0,0,1,16,0v16A8,8,0,0,1,128,144Zm-72.19,39.32L113,156.05A23.89,23.89,0,0,0,128,160a23.89,23.89,0,0,0,15-4l57.19,27.27A88,88,0,0,1,55.81,183.32Z"/></svg>
+                    </div>
+                    <div class="card-heading">
+                        <h2>Driver Login</h2>
+                        <p>Manage trips and share live location</p>
+                    </div>
+                </div>
+                <div class="accent-bar"></div>
+
+                <div class="field">
+                    <label>Email address</label>
+                    <div class="field-wrap">
+                        <span class="fi">
+                            <svg viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg"><path d="M224,48H32a8,8,0,0,0-8,8V192a16,16,0,0,0,16,16H216a16,16,0,0,0,16-16V56A8,8,0,0,0,224,48ZM203.43,64,128,133.15,52.57,64ZM216,192H40V74.19l82.59,75.71a8,8,0,0,0,10.82,0L216,74.19V192Z"/></svg>
+                        </span>
+                        <input type="email" id="d-email" placeholder="driver@jcer.edu" autocomplete="email">
+                    </div>
+                </div>
+                <div class="field">
+                    <label>Password</label>
+                    <div class="field-wrap">
+                        <span class="fi">
+                            <svg viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg"><path d="M208,80H168V56a40,40,0,0,0-80,0V80H48A16,16,0,0,0,32,96V208a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V96A16,16,0,0,0,208,80ZM104,56a24,24,0,0,1,48,0V80H104ZM208,208H48V96H208V208Zm-80-48a12,12,0,1,1,12,12A12,12,0,0,1,128,160Z"/></svg>
+                        </span>
+                        <input type="password" id="d-password" placeholder="Enter your password">
+                        <button class="pw-toggle" type="button" onclick="togglePw('d-password', this)">
+                            <svg viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg"><path d="M247.31,124.76c-.35-.79-8.82-19.58-27.65-38.41C194.57,61.26,162.88,48,128,48S61.43,61.26,36.34,86.35C17.51,105.18,9,124,8.69,124.76a8,8,0,0,0,0,6.5c.35.79,8.82,19.57,27.65,38.4C61.43,194.74,93.12,208,128,208s66.57-13.26,91.66-38.34c18.83-18.83,27.3-37.61,27.65-38.4A8,8,0,0,0,247.31,124.76ZM128,192c-30.78,0-57.67-11.19-79.93-33.25A133.47,133.47,0,0,1,25,128,133.33,133.33,0,0,1,48.07,97.25C70.33,75.19,97.22,64,128,64s57.67,11.19,79.93,33.25A133.46,133.46,0,0,1,231.05,128C223.84,141.46,192.43,192,128,192Zm0-112a48,48,0,1,0,48,48A48.05,48.05,0,0,0,128,80Zm0,80a32,32,0,1,1,32-32A32,32,0,0,1,128,160Z"/></svg>
+                        </button>
+                    </div>
+                </div>
+                <div class="field-row">
+                    <label class="checkbox-wrap">
+                        <input type="checkbox"> <span>Remember me</span>
+                    </label>
+                    <a href="#" class="forgot-link">Forgot password?</a>
+                </div>
+                <div class="error-msg" id="d-error">
+                    <svg viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg"><path d="M236.8,188.09,149.35,36.22a24.76,24.76,0,0,0-42.7,0L19.2,188.09a23.51,23.51,0,0,0,0,23.72A24.35,24.35,0,0,0,40.55,224h174.9a24.35,24.35,0,0,0,21.33-12.19A23.51,23.51,0,0,0,236.8,188.09ZM120,104a8,8,0,0,1,16,0v40a8,8,0,0,1-16,0Zm8,88a12,12,0,1,1,12-12A12,12,0,0,1,128,192Z"/></svg>
+                    <span>Invalid credentials. Please check your email and password.</span>
+                </div>
+                <button class="submit-btn" onclick="doLogin('driver')">
+                    <div class="spinner" id="d-spinner"></div>
+                    <span id="d-btnText">Sign In</span>
+                    <svg viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg"><path d="M221.66,133.66l-72,72a8,8,0,0,1-11.32-11.32L196.69,136H40a8,8,0,0,1,0-16H196.69L138.34,61.66a8,8,0,0,1,11.32-11.32l72,72A8,8,0,0,1,221.66,133.66Z"/></svg>
+                </button>
+                <div class="card-footer">
+                    <svg viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm88,104a87.55,87.55,0,0,1-8.39,37.4L152,140.31V120a24,24,0,0,0-48,0v20.31L47.39,165.4A88,88,0,0,1,40,128a88.1,88.1,0,0,1,84-87.88V56a8,8,0,0,0,16,0V40.12A88.1,88.1,0,0,1,216,128Zm-88,16a8,8,0,0,1-8-8V120a8,8,0,0,1,16,0v16A8,8,0,0,1,128,144Zm-72.19,39.32L113,156.05A23.89,23.89,0,0,0,128,160a23.89,23.89,0,0,0,15-4l57.19,27.27A88,88,0,0,1,55.81,183.32Z"/></svg>
+                    Driver portal access is restricted. Fleet control only.
+                </div>
+                <div class="demo-hint">
+                    <div class="demo-title">Demo Credentials</div>
+                    <div class="demo-row">
+                        <span class="demo-role">Driver</span>
+                        <span class="demo-creds">driver@jcer.edu / driver123</span>
+                        <button class="demo-fill" onclick="fillDemo('driver','driver@jcer.edu','driver123')">Fill</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Admin Panel -->
+            <div class="role-panel" id="panel-admin">
+                <div class="card-header">
+                    <div class="card-avatar">
+                        <svg viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg"><path d="M208,40H48A16,16,0,0,0,32,56V136c0,88,88,112,88,112s88-24,88-112V56A16,16,0,0,0,208,40Zm0,96c0,72.34-68.55,95.68-80,99.38C116.55,231.68,48,208.34,48,136V56H208ZM82.34,141.66a8,8,0,0,1,11.32-11.32L112,148.69l50.34-50.35a8,8,0,0,1,11.32,11.32l-56,56a8,8,0,0,1-11.32,0Z"/></svg>
+                    </div>
+                    <div class="card-heading">
+                        <h2>Admin Login</h2>
+                        <p>System control and fleet management</p>
+                    </div>
+                </div>
+                <div class="accent-bar"></div>
+
+                <div class="field">
+                    <label>Admin username</label>
+                    <div class="field-wrap">
+                        <span class="fi">
+                            <svg viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg"><path d="M208,40H48A16,16,0,0,0,32,56V136c0,88,88,112,88,112s88-24,88-112V56A16,16,0,0,0,208,40Zm0,96c0,72.34-68.55,95.68-80,99.38C116.55,231.68,48,208.34,48,136V56H208ZM82.34,141.66a8,8,0,0,1,11.32-11.32L112,148.69l50.34-50.35a8,8,0,0,1,11.32,11.32l-56,56a8,8,0,0,1-11.32,0Z"/></svg>
+                        </span>
+                        <input type="email" id="a-email" placeholder="admin@jcer.edu" autocomplete="email">
+                    </div>
+                </div>
+                <div class="field">
+                    <label>Admin password</label>
+                    <div class="field-wrap">
+                        <span class="fi">
+                            <svg viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg"><path d="M208,80H168V56a40,40,0,0,0-80,0V80H48A16,16,0,0,0,32,96V208a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V96A16,16,0,0,0,208,80ZM104,56a24,24,0,0,1,48,0V80H104ZM208,208H48V96H208V208Zm-80-48a12,12,0,1,1,12,12A12,12,0,0,1,128,160Z"/></svg>
+                        </span>
+                        <input type="password" id="a-password" placeholder="Enter admin password">
+                        <button class="pw-toggle" type="button" onclick="togglePw('a-password', this)">
+                            <svg viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg"><path d="M247.31,124.76c-.35-.79-8.82-19.58-27.65-38.41C194.57,61.26,162.88,48,128,48S61.43,61.26,36.34,86.35C17.51,105.18,9,124,8.69,124.76a8,8,0,0,0,0,6.5c.35.79,8.82,19.57,27.65,38.4C61.43,194.74,93.12,208,128,208s66.57-13.26,91.66-38.34c18.83-18.83,27.3-37.61,27.65-38.4A8,8,0,0,0,247.31,124.76ZM128,192c-30.78,0-57.67-11.19-79.93-33.25A133.47,133.47,0,0,1,25,128,133.33,133.33,0,0,1,48.07,97.25C70.33,75.19,97.22,64,128,64s57.67,11.19,79.93,33.25A133.46,133.46,0,0,1,231.05,128C223.84,141.46,192.43,192,128,192Zm0-112a48,48,0,1,0,48,48A48.05,48.05,0,0,0,128,80Zm0,80a32,32,0,1,1,32-32A32,32,0,0,1,128,160Z"/></svg>
+                        </button>
+                    </div>
+                </div>
+                <div class="field-row">
+                    <label class="checkbox-wrap">
+                        <input type="checkbox"> <span>Remember me</span>
+                    </label>
+                    <a href="#" class="forgot-link">Forgot password?</a>
+                </div>
+                <div class="error-msg" id="a-error">
+                    <svg viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg"><path d="M236.8,188.09,149.35,36.22a24.76,24.76,0,0,0-42.7,0L19.2,188.09a23.51,23.51,0,0,0,0,23.72A24.35,24.35,0,0,0,40.55,224h174.9a24.35,24.35,0,0,0,21.33-12.19A23.51,23.51,0,0,0,236.8,188.09ZM120,104a8,8,0,0,1,16,0v40a8,8,0,0,1-16,0Zm8,88a12,12,0,1,1,12-12A12,12,0,0,1,128,192Z"/></svg>
+                    <span>Invalid credentials. Admin access denied.</span>
+                </div>
+                <button class="submit-btn" onclick="doLogin('admin')">
+                    <div class="spinner" id="a-spinner"></div>
+                    <span id="a-btnText">Sign In</span>
+                    <svg viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg"><path d="M221.66,133.66l-72,72a8,8,0,0,1-11.32-11.32L196.69,136H40a8,8,0,0,1,0-16H196.69L138.34,61.66a8,8,0,0,1,11.32-11.32l72,72A8,8,0,0,1,221.66,133.66Z"/></svg>
+                </button>
+                <div class="card-footer">
+                    <svg viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg"><path d="M208,80H168V56a40,40,0,0,0-80,0V80H48A16,16,0,0,0,32,96V208a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V96A16,16,0,0,0,208,80ZM104,56a24,24,0,0,1,48,0V80H104ZM208,208H48V96H208V208Zm-80-48a12,12,0,1,1,12,12A12,12,0,0,1,128,160Z"/></svg>
+                    System access is restricted. <a href="#" style="color: var(--a-accent); text-decoration: none; font-weight: 600;">Get help</a>
+                </div>
+                <div class="demo-hint">
+                    <div class="demo-title">Demo Credentials</div>
+                    <div class="demo-row">
+                        <span class="demo-role">Admin</span>
+                        <span class="demo-creds">admin@jcer.edu / admin123</span>
+                        <button class="demo-fill" onclick="fillDemo('admin','admin@jcer.edu','admin123')">Fill</button>
+                    </div>
+                </div>
+            </div>
+
+        </div><!-- /login-card -->
+    </div><!-- /wrapper -->
+
+    <script>
+        const DEST = {
+            student: 'index.html',
+            driver:  'driver.html',
+            admin:   'admin.html'
+        };
+
+        let currentRole = 'student';
+
+        // Role switching
+        document.querySelectorAll('.role-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                const role = tab.dataset.role;
+                if (role === currentRole) return;
+                currentRole = role;
+
+                // Update tabs
+                document.querySelectorAll('.role-tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+
+                // Update card class
+                const card = document.getElementById('loginCard');
+                card.classList.remove('student', 'driver', 'admin');
+                card.classList.add(role);
+
+                // Swap panels
+                document.querySelectorAll('.role-panel').forEach(p => p.classList.remove('active'));
+                document.getElementById('panel-' + role).classList.add('active');
+
+                // Clear errors
+                clearErrors();
+            });
+        });
+
+        function clearErrors() {
+            document.querySelectorAll('.error-msg').forEach(e => e.classList.remove('show'));
+        }
+
+        function togglePw(inputId, btn) {
+            const inp = document.getElementById(inputId);
+            const isHidden = inp.type === 'password';
+            inp.type = isHidden ? 'text' : 'password';
+            // Toggle eye icon
+            const svg = btn.querySelector('svg');
+            if (isHidden) {
+                // Eye-slash SVG
+                svg.innerHTML = '<path d="M53.92,34.08a8,8,0,0,0-11.84,10.74l19.4,21.34C44.29,80.13,29,100,24.18,127a8,8,0,0,0,15.7,3C44,108.42,60.39,92.51,80,83.41l18.34,20.19A44,44,0,0,0,128,172a43.66,43.66,0,0,0,20.16-4.89l19.29,21.22A8,8,0,0,0,179,199.92a8,8,0,0,0,5.42-13.84ZM128,156a28,28,0,0,1-18.9-48.33L136.5,136a28.14,28.14,0,0,1-8.5,20Zm103.82-29a133.33,133.33,0,0,1-23.07,30.75,8,8,0,1,1-11.32-11.3A117.31,117.31,0,0,0,216,128a117.2,117.2,0,0,0-20.63-32.29,8,8,0,1,1,12-10.62A133.6,133.6,0,0,1,231.82,127Z"/>';
+            } else {
+                svg.innerHTML = '<path d="M247.31,124.76c-.35-.79-8.82-19.58-27.65-38.41C194.57,61.26,162.88,48,128,48S61.43,61.26,36.34,86.35C17.51,105.18,9,124,8.69,124.76a8,8,0,0,0,0,6.5c.35.79,8.82,19.57,27.65,38.4C61.43,194.74,93.12,208,128,208s66.57-13.26,91.66-38.34c18.83-18.83,27.3-37.61,27.65-38.4A8,8,0,0,0,247.31,124.76ZM128,192c-30.78,0-57.67-11.19-79.93-33.25A133.47,133.47,0,0,1,25,128,133.33,133.33,0,0,1,48.07,97.25C70.33,75.19,97.22,64,128,64s57.67,11.19,79.93,33.25A133.46,133.46,0,0,1,231.05,128C223.84,141.46,192.43,192,128,192Zm0-112a48,48,0,1,0,48,48A48.05,48.05,0,0,0,128,80Zm0,80a32,32,0,1,1,32-32A32,32,0,0,1,128,160Z"/>';
+            }
+        }
+
+        function fillDemo(role, email, password) {
+            // Switch to role first
+            if (role !== currentRole) {
+                document.querySelector(`.role-tab[data-role="${role}"]`).click();
+            }
+            document.getElementById(role[0] + '-email').value = email;
+            document.getElementById(role[0] + '-password').value = password;
+            clearErrors();
+        }
+
+        async function doLogin(role) {
+            const prefix   = role[0];
+            const email    = document.getElementById(prefix + '-email').value.trim();
+            const password = document.getElementById(prefix + '-password').value;
+            const errorEl  = document.getElementById(prefix + '-error');
+            const spinner  = document.getElementById(prefix + '-spinner');
+            const btnText  = document.getElementById(prefix + '-btnText');
+            const btn      = document.querySelector('#panel-' + role + ' .submit-btn');
+
+            clearErrors();
+
+            if (!email || !password) {
+                errorEl.textContent = 'Please enter your email and password.';
+                errorEl.classList.add('show');
+                return;
+            }
+
+            // Loading state
+            spinner.style.display = 'block';
+            btnText.textContent = 'Signing in…';
+            btn.style.opacity = '0.75';
+            btn.style.pointerEvents = 'none';
+
+            try {
+                const res = await fetch('http://localhost:5000/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password, role })
+                });
+
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.message || 'Login failed');
+
+                // Store auth data
+                localStorage.setItem('bt_token',  data.token);
+                localStorage.setItem('bt_role',   data.role);
+                localStorage.setItem('bt_name',   data.name);
+                localStorage.setItem('bt_email',  data.email);
+                if (data.busId)      localStorage.setItem('bt_busId',      data.busId);
+                if (data.routeId)    localStorage.setItem('bt_routeId',    data.routeId);
+                if (data.driverCode) localStorage.setItem('bt_driverCode', data.driverCode);
+                sessionStorage.setItem('bt_role',  data.role);
+                sessionStorage.setItem('bt_email', data.email);
+
+                const DEST = { student: 'index.html', driver: 'driver.html', admin: 'admin.html' };
+                btnText.textContent = '✓ Welcome!';
+                setTimeout(() => { window.location.href = DEST[data.role] || 'index.html'; }, 800);
+
+            } catch (err) {
+                errorEl.textContent = err.message || 'Login failed. Check your credentials.';
+                errorEl.classList.add('show');
+                spinner.style.display = 'none';
+                btnText.textContent = 'Sign In';
+                btn.style.opacity = '1';
+                btn.style.pointerEvents = '';
+            }
+        }
+
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Enter') doLogin(currentRole);
+        });
+    </script>
+</body>
+</html>

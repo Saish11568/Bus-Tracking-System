@@ -1,0 +1,849 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BusTrack — Admin Control Centre</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+<link rel="stylesheet"
+href="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.css" />
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#04060e;--surface:#080d18;--s2:#0d1422;--s3:#121929;
+  --glass:rgba(255,255,255,.03);--glass2:rgba(255,255,255,.06);
+  --b1:rgba(255,255,255,.055);--b2:rgba(255,255,255,.10);--b3:rgba(255,255,255,.18);
+  --t1:#eef2ff;--t2:#7a8499;--t3:#3d4659;
+  --a:#6070ff;--a2:#8090ff;--abg:rgba(96,112,255,.10);--aglow:rgba(96,112,255,.22);
+  --green:#00d68f;--gbg:rgba(0,214,143,.10);
+  --amber:#ffb020;--ybg:rgba(255,176,32,.10);
+  --red:#ff4d6a;--rbg:rgba(255,77,106,.10);
+  --purple:#a78bfa;--pbg:rgba(167,139,250,.10);
+  --cyan:#22d3ee;--cbg:rgba(34,211,238,.10);
+  --sw:224px;--th:58px;--r:12px;--rl:18px;
+}
+html,body{height:100%;overflow:hidden}
+body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--bg);color:var(--t1);display:flex}
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--b2);border-radius:4px}
+
+/* ════ SIDEBAR ════ */
+.sb{width:var(--sw);min-width:var(--sw);background:var(--surface);border-right:1px solid var(--b1);display:flex;flex-direction:column;flex-shrink:0;position:relative;z-index:100;overflow:hidden}
+.sb::before{content:'';position:absolute;top:-80px;left:-60px;width:280px;height:240px;background:radial-gradient(ellipse,rgba(96,112,255,.15) 0%,transparent 70%);pointer-events:none}
+.sb-logo{display:flex;align-items:center;gap:12px;padding:20px 16px 16px;border-bottom:1px solid var(--b1);position:relative}
+.sb-mark{width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,var(--a),#8b5cf6);display:flex;align-items:center;justify-content:center;font-size:18px;color:#fff;flex-shrink:0;box-shadow:0 0 18px var(--aglow)}
+.sb-name{font-size:15px;font-weight:800;letter-spacing:-.3px}
+.sb-sub{font-size:10px;color:var(--a);font-family:'JetBrains Mono',monospace;letter-spacing:1px}
+.sb-user{margin:12px 12px 0;padding:11px;background:var(--glass);border:1px solid var(--b1);border-radius:var(--r);display:flex;align-items:center;gap:10px}
+.sb-av{width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,var(--a),#8b5cf6);display:flex;align-items:center;justify-content:center;font-size:14px;color:#fff;flex-shrink:0}
+.sb-uname{font-size:12px;font-weight:700}.sb-urole{font-size:10px;color:var(--a);font-family:'JetBrains Mono',monospace}
+.online{margin-left:auto;width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 6px var(--green);animation:gp 2s infinite}
+@keyframes gp{0%,100%{box-shadow:0 0 4px var(--green)}50%{box-shadow:0 0 10px var(--green)}}
+.sb-nav{flex-grow:1;overflow-y:auto;padding:8px 8px 0}
+.sb-sec{font-size:9px;font-weight:700;letter-spacing:1.4px;text-transform:uppercase;color:var(--t3);padding:12px 8px 5px}
+.ni{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:10px;color:var(--t2);font-size:13px;font-weight:500;cursor:pointer;transition:all .15s;margin-bottom:1px;text-decoration:none;position:relative;overflow:hidden}
+.ni i{font-size:17px;flex-shrink:0;transition:transform .18s}
+.ni:hover{background:var(--glass2);color:var(--t1)}.ni:hover i{transform:translateX(1px)}
+.ni.active{background:var(--abg);color:var(--a);border:1px solid rgba(96,112,255,.14)}
+.ni.active::before{content:'';position:absolute;left:0;top:20%;width:3px;height:60%;background:var(--a);border-radius:0 3px 3px 0}
+.nb{margin-left:auto;background:var(--red);color:#fff;font-size:9px;font-weight:800;padding:2px 5px;border-radius:10px;font-family:'JetBrains Mono',monospace}
+.sb-foot{padding:10px 8px 14px;border-top:1px solid var(--b1);margin-top:auto}
+.lo{display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:9px;color:var(--t2);font-size:13px;font-weight:500;cursor:pointer;transition:all .15s}
+.lo:hover{background:var(--rbg);color:var(--red)}.lo i{font-size:17px}
+
+/* ════ MAIN ════ */
+.main{flex-grow:1;display:flex;flex-direction:column;overflow:hidden;min-width:0;background:var(--bg)}
+
+/* ── Topbar ── */
+.tb{height:var(--th);display:flex;align-items:center;padding:0 22px;gap:12px;background:var(--surface);border-bottom:1px solid var(--b1);flex-shrink:0;z-index:50}
+.tb-title{font-size:17px;font-weight:800;letter-spacing:-.3px}
+.tb-crumb{font-size:11px;color:var(--t3);margin-top:1px}
+.tb-search{margin-left:auto;display:flex;align-items:center;gap:8px;background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:7px 13px;width:250px;transition:border-color .2s,width .3s}
+.tb-search:focus-within{border-color:var(--b2);width:310px}
+.tb-search i{color:var(--t3);font-size:15px;flex-shrink:0}
+.tb-search input{background:none;border:none;outline:none;font-family:'Plus Jakarta Sans',sans-serif;font-size:13px;color:var(--t1);width:100%}
+.tb-search input::placeholder{color:var(--t3)}
+.tbi{width:34px;height:34px;border-radius:9px;border:1px solid var(--b1);background:var(--s2);color:var(--t2);font-size:17px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .15s;flex-shrink:0;position:relative}
+.tbi:hover{background:var(--s3);color:var(--t1);border-color:var(--b2)}
+.tbi .dot{position:absolute;top:5px;right:5px;width:7px;height:7px;border-radius:50%;background:var(--red);border:2px solid var(--surface)}
+.tb-time{font-size:11px;color:var(--t3);font-family:'JetBrains Mono',monospace;flex-shrink:0;white-space:nowrap}
+
+/* ════ VIEWS ════ */
+.con{flex-grow:1;overflow:hidden;position:relative}
+.view{display:none;height:100%;overflow-y:auto;padding:22px 22px 28px}
+.view.active{display:block}
+.view.fullmap{padding:0}
+@keyframes fu{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.view.active>*{animation:fu .22s ease both}
+.view.active>*:nth-child(2){animation-delay:.04s}
+.view.active>*:nth-child(3){animation-delay:.08s}
+.view.active>*:nth-child(4){animation-delay:.12s}
+
+/* ════ OVERVIEW ════ */
+.sg{display:grid;grid-template-columns:repeat(4,1fr);gap:13px;margin-bottom:18px}
+.sc{background:var(--surface);border:1px solid var(--b1);border-radius:var(--rl);padding:18px;position:relative;overflow:hidden;transition:border-color .2s,transform .2s}
+.sc:hover{border-color:var(--b2);transform:translateY(-2px)}
+.sc::after{content:'';position:absolute;top:0;right:0;width:90px;height:90px;border-radius:50%;opacity:.07;transform:translate(35%,-35%)}
+.sc.bl::after{background:var(--a)}.sc.gr::after{background:var(--green)}.sc.am::after{background:var(--amber)}.sc.re::after{background:var(--red)}
+.sc-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.sico{width:40px;height:40px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:20px}
+.sico.bl{background:var(--abg);color:var(--a)}.sico.gr{background:var(--gbg);color:var(--green)}.sico.am{background:var(--ybg);color:var(--amber)}.sico.re{background:var(--rbg);color:var(--red)}
+.strend{font-size:10px;font-weight:700;padding:3px 7px;border-radius:20px;font-family:'JetBrains Mono',monospace}
+.strend.up{background:var(--gbg);color:var(--green)}.strend.dn{background:var(--rbg);color:var(--red)}.strend.ne{background:var(--glass2);color:var(--t2)}
+.snum{font-size:30px;font-weight:800;font-family:'JetBrains Mono',monospace;letter-spacing:-1.5px;line-height:1;margin-bottom:3px}
+.slbl{font-size:12px;color:var(--t2);font-weight:500}
+
+.og{display:grid;grid-template-columns:1.2fr 1fr;gap:13px;margin-bottom:14px}
+.card{background:var(--surface);border:1px solid var(--b1);border-radius:var(--rl);padding:17px;overflow:hidden}
+.card-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.card-title{font-size:13px;font-weight:700}
+.card-link{font-size:12px;color:var(--a);background:none;border:none;font-family:'Plus Jakarta Sans',sans-serif;font-weight:600;cursor:pointer;transition:opacity .15s}
+.card-link:hover{opacity:.7}
+
+.br{display:flex;align-items:center;gap:11px;padding:9px;background:var(--s2);border-radius:10px;margin-bottom:7px;transition:background .14s;border:1px solid transparent}
+.br:last-child{margin-bottom:0}.br:hover{background:var(--s3);border-color:var(--b1)}
+.brid{width:50px;font-size:12px;font-weight:700;font-family:'JetBrains Mono',monospace;flex-shrink:0}
+.bri{flex-grow:1;min-width:0}
+.bri-name{font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bri-sub{font-size:11px;color:var(--t3)}
+
+.ar{display:flex;align-items:flex-start;gap:10px;padding:9px;border-radius:10px;background:var(--s2);margin-bottom:7px;border-left:3px solid transparent;transition:background .14s}
+.ar:last-child{margin-bottom:0}.ar:hover{background:var(--s3)}
+.ar.crit{border-left-color:var(--red)}.ar.warn{border-left-color:var(--amber)}.ar.info{border-left-color:var(--a)}
+.aico{width:27px;height:27px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}
+.aico.crit{background:var(--rbg);color:var(--red)}.aico.warn{background:var(--ybg);color:var(--amber)}.aico.info{background:var(--abg);color:var(--a)}
+.ab{flex-grow:1;min-width:0}
+.ab h5{font-size:12px;font-weight:600;margin-bottom:1px}
+.ab p{font-size:11px;color:var(--t2)}
+.at{font-size:10px;color:var(--t3);font-family:'JetBrains Mono',monospace;flex-shrink:0;white-space:nowrap}
+
+/* Occupancy bars */
+.ob-row{display:flex;align-items:center;gap:9px;margin-bottom:9px}
+.ob-row:last-child{margin-bottom:0}
+.ob-name{font-size:12px;font-weight:600;width:108px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ob-track{flex-grow:1;height:5px;background:var(--s3);border-radius:3px;overflow:hidden}
+.ob-fill{height:100%;border-radius:3px;transition:width 1.2s ease}
+.ob-val{font-size:10px;font-weight:700;color:var(--t2);width:30px;text-align:right;font-family:'JetBrains Mono',monospace}
+
+/* ════ TABLE ════ */
+.tw{background:var(--surface);border:1px solid var(--b1);border-radius:var(--rl);overflow:hidden}
+.tt{display:flex;align-items:center;gap:8px;padding:13px 16px;border-bottom:1px solid var(--b1);flex-wrap:wrap}
+.sw2{position:relative;flex-grow:1;max-width:270px}
+.sw2 i{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--t3);font-size:15px;pointer-events:none}
+.sw2 input{width:100%;background:var(--s2);border:1px solid var(--b1);border-radius:9px;padding:7px 11px 7px 32px;font-size:13px;font-family:'Plus Jakarta Sans',sans-serif;color:var(--t1);outline:none;transition:border-color .2s}
+.sw2 input:focus{border-color:var(--b2)}.sw2 input::placeholder{color:var(--t3)}
+table{width:100%;border-collapse:collapse}
+thead th{padding:10px 16px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--t3);background:var(--s2);border-bottom:1px solid var(--b1);white-space:nowrap}
+tbody tr{transition:background .12s;border-bottom:1px solid var(--b1)}
+tbody tr:last-child{border-bottom:none}
+tbody tr:hover{background:rgba(255,255,255,.018)}
+tbody td{padding:12px 16px;font-size:13px;vertical-align:middle}
+.tb2{font-weight:700}.mo{font-family:'JetBrains Mono',monospace;font-size:12px}.mu{color:var(--t2)}
+
+/* Pills */
+.pill{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:10.5px;font-weight:700;white-space:nowrap}
+.pd{width:5px;height:5px;border-radius:50%;background:currentColor}
+.pill.gr{background:var(--gbg);color:var(--green)}.pill.am{background:var(--ybg);color:var(--amber)}
+.pill.re{background:var(--rbg);color:var(--red)}.pill.bl{background:var(--abg);color:var(--a)}
+.pill.gy{background:var(--glass2);color:var(--t2)}.pill.pu{background:var(--pbg);color:var(--purple)}
+.pill.cy{background:var(--cbg);color:var(--cyan)}
+
+/* Actions */
+.acts{display:flex;gap:5px}
+.act{width:28px;height:28px;border:1px solid var(--b1);background:var(--s2);border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:13px;color:var(--t2);cursor:pointer;transition:all .13s}
+.act:hover{background:var(--s3);color:var(--t1);border-color:var(--b2)}
+.act.d:hover{background:var(--rbg);color:var(--red);border-color:rgba(255,77,106,.28)}
+.act.s:hover{background:var(--gbg);color:var(--green);border-color:rgba(0,214,143,.28)}
+.act.p:hover{background:var(--abg);color:var(--a);border-color:rgba(96,112,255,.28)}
+
+/* Buttons */
+.btn{padding:8px 15px;border:none;border-radius:9px;font-size:13px;font-weight:600;font-family:'Plus Jakarta Sans',sans-serif;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:all .17s;white-space:nowrap}
+.bp{background:linear-gradient(135deg,var(--a),#7c5aff);color:#fff;box-shadow:0 4px 14px var(--aglow)}
+.bp:hover{transform:translateY(-1px);box-shadow:0 6px 18px var(--aglow)}
+.bg{background:var(--s2);color:var(--t2);border:1px solid var(--b1)}
+.bg:hover{color:var(--t1);background:var(--s3);border-color:var(--b2)}
+.bda{background:var(--rbg);color:var(--red);border:1px solid rgba(255,77,106,.2)}
+.bda:hover{background:rgba(255,77,106,.2)}
+
+/* Chips */
+.chip{padding:5px 11px;border-radius:20px;border:1px solid var(--b1);background:var(--s2);color:var(--t2);font-size:12px;font-weight:600;cursor:pointer;font-family:'Plus Jakarta Sans',sans-serif;transition:all .14s}
+.chip:hover{border-color:var(--b2);color:var(--t1)}.chip.active{background:var(--abg);border-color:rgba(96,112,255,.28);color:var(--a)}
+
+/* Section header */
+.sh{display:flex;align-items:center;justify-content:space-between;margin-bottom:15px}
+.sh-l h2{font-size:17px;font-weight:800;letter-spacing:-.3px}
+.sh-l span{font-size:12px;color:var(--t3);margin-top:2px;display:block}
+
+/* ════ MAP ════ */
+.mw{position:relative;height:100%}
+#admin-map{width:100%;height:100%;z-index:0}
+.leaflet-container{z-index:0!important}
+.mp{position:absolute;top:14px;left:14px;z-index:500;display:flex;flex-direction:column;gap:9px}
+.ml{background:rgba(4,6,14,.9);backdrop-filter:blur(14px);border:1px solid var(--b2);border-radius:var(--r);padding:13px 15px;box-shadow:0 8px 22px rgba(0,0,0,.5);min-width:170px}
+.ml-title{font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.9px;color:var(--t3);margin-bottom:9px}
+.ml-item{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--t2);margin-bottom:6px}
+.ml-item:last-child{margin-bottom:0}
+.ml-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+.ms{background:rgba(4,6,14,.9);backdrop-filter:blur(14px);border:1px solid var(--b2);border-radius:var(--r);padding:13px 15px;box-shadow:0 8px 22px rgba(0,0,0,.5)}
+.ms-row{display:flex;align-items:center;gap:9px;font-size:12px;color:var(--t2);margin-bottom:7px}
+.ms-row:last-child{margin-bottom:0}.ms-row i{font-size:15px;flex-shrink:0}
+.ms-val{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--t1);margin-left:auto;font-weight:600}
+
+/* ════ ROUTES ════ */
+.rc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:13px;margin-top:14px}
+.rc{background:var(--surface);border:1px solid var(--b1);border-radius:var(--rl);padding:17px;transition:border-color .2s,transform .2s;position:relative;overflow:hidden}
+.rc:hover{border-color:var(--b2);transform:translateY(-2px)}
+.rc::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;border-radius:var(--rl) var(--rl) 0 0}
+.rc[data-c=blue]::before{background:linear-gradient(90deg,var(--a),#8b5cf6)}
+.rc[data-c=green]::before{background:linear-gradient(90deg,var(--green),#00b87a)}
+.rc[data-c=amber]::before{background:linear-gradient(90deg,var(--amber),#f97316)}
+.rc[data-c=purple]::before{background:linear-gradient(90deg,var(--purple),#ec4899)}
+.rc[data-c=cyan]::before{background:linear-gradient(90deg,var(--cyan),#38bdf8)}
+.rc-hd{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:13px}
+.rc-name{font-size:15px;font-weight:800;letter-spacing:-.3px}
+.rc-id{font-size:11px;color:var(--t3);font-family:'JetBrains Mono',monospace;margin-top:1px}
+.rc-sg{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:13px}
+.rc-s{background:var(--s2);border-radius:8px;padding:9px}
+.rc-s-l{font-size:9.5px;color:var(--t3);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px}
+.rc-s-v{font-size:14px;font-weight:800;font-family:'JetBrains Mono',monospace}
+.rc-stops-label{font-size:9.5px;color:var(--t3);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:7px}
+.rc-stop{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--t2);margin-bottom:4px}
+.rc-stop-dot{width:5px;height:5px;border-radius:50%;flex-shrink:0}
+.rc-acts{display:flex;gap:7px;margin-top:13px}
+.rc-btn{flex:1;padding:8px;border-radius:8px;border:1px solid var(--b1);background:var(--s2);color:var(--t2);font-family:'Plus Jakarta Sans',sans-serif;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;transition:all .14s}
+.rc-btn:hover{background:var(--s3);color:var(--t1);border-color:var(--b2)}
+.rc-btn.p{background:var(--abg);border-color:rgba(96,112,255,.2);color:var(--a)}.rc-btn.p:hover{background:rgba(96,112,255,.18)}
+.rc-btn.d{background:var(--rbg);border-color:rgba(255,77,106,.2);color:var(--red)}.rc-btn.d:hover{background:rgba(255,77,106,.2)}
+
+/* ════ SETTINGS ════ */
+.set-g{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.set-c{background:var(--surface);border:1px solid var(--b1);border-radius:var(--rl);padding:19px}
+.set-t{font-size:13px;font-weight:700;display:flex;align-items:center;gap:8px;margin-bottom:3px}
+.set-t i{font-size:16px;color:var(--a)}
+.set-sub{font-size:12px;color:var(--t3);margin-bottom:16px}
+.tog-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--b1)}
+.tog-row:last-of-type{border-bottom:none}
+.tog-lbl{font-size:13px;font-weight:500}.tog-sub{font-size:11px;color:var(--t3);margin-top:1px}
+.tog{position:relative;width:38px;height:21px;flex-shrink:0}
+.tog input{opacity:0;width:0;height:0}
+.tog-sl{position:absolute;inset:0;background:var(--s3);border-radius:21px;cursor:pointer;transition:all .2s;border:1px solid var(--b1)}
+.tog-sl::before{content:'';position:absolute;width:15px;height:15px;left:2px;bottom:2px;background:var(--t3);border-radius:50%;transition:all .2s}
+.tog input:checked+.tog-sl{background:var(--a);border-color:var(--a)}
+.tog input:checked+.tog-sl::before{transform:translateX(17px);background:#fff}
+
+/* ════ FORM / MODAL ════ */
+.fr{margin-bottom:13px}
+.fr label{display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--t3);margin-bottom:6px}
+.fr input,.fr select,.fr textarea{width:100%;background:var(--s2);border:1.5px solid var(--b1);border-radius:9px;padding:9px 12px;font-size:13px;font-family:'Plus Jakarta Sans',sans-serif;color:var(--t1);outline:none;transition:border-color .2s,background .2s}
+.fr input:focus,.fr select:focus,.fr textarea:focus{border-color:var(--a);background:rgba(96,112,255,.04)}
+.fr input::placeholder{color:var(--t3)}.fr select option{background:var(--s2)}.fr textarea{resize:vertical;min-height:75px}
+.fg{display:grid;grid-template-columns:1fr 1fr;gap:11px}.ff{grid-column:1/-1}
+
+.mo-ov{position:fixed;inset:0;background:rgba(0,0,0,.75);backdrop-filter:blur(10px);z-index:2000;display:flex;align-items:center;justify-content:center;padding:20px;opacity:0;pointer-events:none;transition:opacity .23s}
+.mo-ov.open{opacity:1;pointer-events:auto}
+.mo{background:var(--surface);border:1px solid var(--b2);border-radius:20px;padding:26px;width:510px;max-width:calc(100vw - 40px);max-height:calc(100vh - 60px);overflow-y:auto;transform:translateY(14px) scale(.97);transition:transform .27s cubic-bezier(.4,0,.2,1);box-shadow:0 30px 80px rgba(0,0,0,.7),0 0 0 1px rgba(255,255,255,.04)}
+.mo-ov.open .mo{transform:translateY(0) scale(1)}
+.mo-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
+.mo-icon{width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:17px;background:var(--abg);color:var(--a);flex-shrink:0}
+.mo-ttl{font-size:16px;font-weight:800;letter-spacing:-.3px;margin-left:10px}
+.mo-cl{width:28px;height:28px;border:none;background:var(--s2);border-radius:50%;color:var(--t2);font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .14s,color .14s}
+.mo-cl:hover{background:var(--s3);color:var(--t1)}
+.mo-ft{display:flex;justify-content:flex-end;gap:9px;margin-top:20px;padding-top:18px;border-top:1px solid var(--b1)}
+
+/* Toast */
+#toast{position:fixed;bottom:22px;right:22px;z-index:9999;background:var(--surface);border:1px solid var(--b2);border-radius:12px;padding:12px 16px;font-size:13px;font-weight:600;display:flex;align-items:center;gap:9px;box-shadow:0 12px 30px rgba(0,0,0,.5);transform:translateY(80px);opacity:0;transition:all .28s cubic-bezier(.4,0,.2,1);min-width:210px}
+#toast.show{transform:translateY(0);opacity:1}
+#toast i{font-size:17px}
+#toast.success i{color:var(--green)}#toast.error i{color:var(--red)}#toast.info i{color:var(--a)}
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<aside class="sb">
+  <div class="sb-logo">
+    <div class="sb-mark"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M184,24H72A32,32,0,0,0,40,56V208a16,16,0,0,0,16,16H56a16,16,0,0,0,16-16V192h112v16a16,16,0,0,0,16,16h0a16,16,0,0,0,16-16V56A32,32,0,0,0,184,24ZM56,168V120H200v48ZM200,104H56V56a16,16,0,0,1,16-16H184a16,16,0,0,1,16,16ZM88,84a12,12,0,1,1-12-12A12,12,0,0,1,88,84Zm92,0a12,12,0,1,1-12-12A12,12,0,0,1,180,84Zm-8,92a12,12,0,1,1-12-12A12,12,0,0,1,172,176Zm-80,0a12,12,0,1,1-12-12A12,12,0,0,1,92,176Z"/></svg></div>
+    <div><div class="sb-name">BusTrack</div><div class="sb-sub">ADMIN CENTRE</div></div>
+  </div>
+  <div class="sb-user">
+    <div class="sb-av"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M208,40H48A16,16,0,0,0,32,56V136c0,88,88,112,88,112s88-24,88-112V56A16,16,0,0,0,208,40Zm0,96c0,72.34-68.55,95.68-80,99.38C116.55,231.68,48,208.34,48,136V56H208ZM82.34,141.66a8,8,0,0,1,11.32-11.32L112,148.69l50.34-50.35a8,8,0,0,1,11.32,11.32l-56,56a8,8,0,0,1-11.32,0Z"/></svg></div>
+    <div><div class="sb-uname">Super Admin</div><div class="sb-urole">FULL ACCESS</div></div>
+    <div class="online"></div>
+  </div>
+  <nav class="sb-nav">
+    <div class="sb-sec">Dashboard</div>
+    <a class="ni active" onclick="sv('overview',this)"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M208,32H48A16,16,0,0,0,32,48V208a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V48A16,16,0,0,0,208,32Zm0,16V120H136V48Zm-88,72H48V48h72ZM48,208V136h72v72Zm88,0V136h72v72Z"/></svg> Overview</a>
+    <a class="ni" onclick="sv('live',this)"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M228.92,49.69a8,8,0,0,0-6.86-1.45L160.93,63.52,99.58,32.84a8,8,0,0,0-6.46-.3L26.34,58.42A8,8,0,0,0,21,66V208a8,8,0,0,0,10.92,7.43l61.13-24.39,61.35,30.68A8.15,8.15,0,0,0,158,222a8,8,0,0,0,2.93-.55l66.8-25.88A8,8,0,0,0,235,188V56A8,8,0,0,0,228.92,49.69ZM96,55.75l64,32V200.25l-64-32ZM37,75.14l43-16.64V193.36L37,208.36ZM219,180.86l-43,16.64V62.64l43-16.64Z"/></svg> Live Map</a>
+    <div class="sb-sec">Manage</div>
+    <a class="ni" onclick="sv('buses',this)"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M184,24H72A32,32,0,0,0,40,56V208a16,16,0,0,0,16,16H56a16,16,0,0,0,16-16V192h112v16a16,16,0,0,0,16,16h0a16,16,0,0,0,16-16V56A32,32,0,0,0,184,24ZM56,168V120H200v48ZM200,104H56V56a16,16,0,0,1,16-16H184a16,16,0,0,1,16,16ZM88,84a12,12,0,1,1-12-12A12,12,0,0,1,88,84Zm92,0a12,12,0,1,1-12-12A12,12,0,0,1,180,84Zm-8,92a12,12,0,1,1-12-12A12,12,0,0,1,172,176Zm-80,0a12,12,0,1,1-12-12A12,12,0,0,1,92,176Z"/></svg> Buses</a>
+    <a class="ni" onclick="sv('drivers',this)"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm88,104a87.55,87.55,0,0,1-8.39,37.4L152,140.31V120a24,24,0,0,0-48,0v20.31L47.39,165.4A88,88,0,0,1,40,128a88.1,88.1,0,0,1,84-87.88V56a8,8,0,0,0,16,0V40.12A88.1,88.1,0,0,1,216,128Zm-88,16a8,8,0,0,1-8-8V120a8,8,0,0,1,16,0v16A8,8,0,0,1,128,144Zm-72.19,39.32L113,156.05A23.89,23.89,0,0,0,128,160a23.89,23.89,0,0,0,15-4l57.19,27.27A88,88,0,0,1,55.81,183.32Z"/></svg> Drivers</a>
+    <a class="ni" onclick="sv('routes',this)"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M208,104a32,32,0,1,0-40,31v9a32,32,0,0,1-32,32H108.42a48.12,48.12,0,0,0-8.42-15.56V88a32,32,0,1,0-32,0v80a32,32,0,1,0,32.93.43A32.14,32.14,0,0,0,116,144h27.69A48.09,48.09,0,0,0,192,96V87A32.06,32.06,0,0,0,208,104ZM68,56A16,16,0,1,1,84,72,16,16,0,0,1,68,56Zm16,160a16,16,0,1,1,16-16A16,16,0,0,1,84,216Zm112-96a16,16,0,1,1,16-16A16,16,0,0,1,196,120Z"/></svg> Routes</a>
+    <a class="ni" onclick="sv('students',this)"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M226.53,56.41l-96-32a8,8,0,0,0-5.06,0l-96,32A8,8,0,0,0,24,64v80a8,8,0,0,0,16,0V75.1L73.59,86.29A88.18,88.18,0,0,0,40,156c0,22,8.67,39.71,25.07,51.29A109.75,109.75,0,0,0,128,224a109.75,109.75,0,0,0,62.93-16.71C207.33,195.71,216,178,216,156a88.18,88.18,0,0,0-33.59-69.71l44.12-14.71a8,8,0,0,0,0-15.17ZM200,156c0,52-136,52-144,0a72,72,0,0,1,144,0Z"/></svg> Students</a>
+    <div class="sb-sec">System</div>
+    <a class="ni" onclick="sv('alerts',this)"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M221.8,175.94C216.25,166.38,208,139.33,208,104a80,80,0,1,0-160,0c0,35.34-8.26,62.38-13.81,71.94A16,16,0,0,0,48,200H88.81a40,40,0,0,0,78.38,0H208a16,16,0,0,0,13.8-24.06ZM128,216a24,24,0,0,1-22.62-16h45.24A24,24,0,0,1,128,216ZM48,184c7.7-13.24,16-43.92,16-80a64,64,0,1,1,128,0c0,36.05,8.28,66.73,16,80Z"/></svg> Alerts<span class="nb" id="alertBadge">3</span></a>
+    <a class="ni" onclick="sv('settings',this)"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M128,80a48,48,0,1,0,48,48A48.05,48.05,0,0,0,128,80Zm0,80a32,32,0,1,1,32-32A32,32,0,0,1,128,160Zm88-29.84q.06-2.16,0-4.32l14.92-18.64a8,8,0,0,0,1.48-7.06,107.21,107.21,0,0,0-10.88-26.25,8,8,0,0,0-6-3.93l-23.72-2.64q-1.48-1.56-3-3L186,40.54a8,8,0,0,0-3.94-6,107.71,107.71,0,0,0-26.25-10.87,8,8,0,0,0-7.06,1.49L130.16,40Q128,40,125.84,40L107.2,25.11a8,8,0,0,0-7.06-1.48A107.6,107.6,0,0,0,73.89,34.51a8,8,0,0,0-3.93,6L67.32,64.27q-1.56,1.49-3,3L40.54,70a8,8,0,0,0-6,3.94,107.71,107.71,0,0,0-10.87,26.25,8,8,0,0,0,1.49,7.06L40,125.84Q40,128,40,130.16L25.11,148.8a8,8,0,0,0-1.48,7.06,107.21,107.21,0,0,0,10.88,26.25,8,8,0,0,0,6,3.93l23.72,2.64q1.49,1.56,3,3L70,215.46a8,8,0,0,0,3.94,6,107.71,107.71,0,0,0,26.25,10.87,8,8,0,0,0,7.06-1.49L125.84,216q2.16.06,4.32,0l18.64,14.92a8,8,0,0,0,7.06,1.48,107.21,107.21,0,0,0,26.25-10.88,8,8,0,0,0,3.93-6l2.64-23.72q1.56-1.48,3-3L215.46,186a8,8,0,0,0,6-3.94,107.71,107.71,0,0,0,10.87-26.25,8,8,0,0,0-1.49-7.06Zm-16.1-6.5a73.93,73.93,0,0,1,0,8.68,8,8,0,0,0,1.74,5.48l14.19,17.73a91.57,91.57,0,0,1-6.23,15L187,173.11a8,8,0,0,0-5.1,2.64,74.11,74.11,0,0,1-6.14,6.14,8,8,0,0,0-2.64,5.1l-2.51,22.58a91.32,91.32,0,0,1-15,6.23l-17.74-14.19a8,8,0,0,0-5-1.75h-.48a73.93,73.93,0,0,1-8.68,0,8,8,0,0,0-5.48,1.74L100.45,215.8a91.57,91.57,0,0,1-15-6.23L82.89,187a8,8,0,0,0-2.64-5.1,74.11,74.11,0,0,1-6.14-6.14,8,8,0,0,0-5.1-2.64L46.43,170.6a91.32,91.32,0,0,1-6.23-15l14.19-17.74a8,8,0,0,0,1.74-5.48,73.93,73.93,0,0,1,0-8.68,8,8,0,0,0-1.74-5.48L40.2,100.45a91.57,91.57,0,0,1,6.23-15L69,82.89a8,8,0,0,0,5.1-2.64,74.11,74.11,0,0,1,6.14-6.14A8,8,0,0,0,82.89,69L85.4,46.43a91.32,91.32,0,0,1,15-6.23l17.74,14.19a8,8,0,0,0,5.48,1.74,73.93,73.93,0,0,1,8.68,0,8,8,0,0,0,5.48-1.74L155.55,40.2a91.57,91.57,0,0,1,15,6.23L173.11,69a8,8,0,0,0,2.64,5.1,74.11,74.11,0,0,1,6.14,6.14,8,8,0,0,0,5.1,2.64l22.58,2.51a91.32,91.32,0,0,1,6.23,15l-14.19,17.74A8,8,0,0,0,199.87,123.66Z"/></svg> Settings</a>
+  </nav>
+  <div class="sb-foot"><div class="lo" onclick="logout()"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M120,216a8,8,0,0,1-8,8H48a16,16,0,0,1-16-16V48A16,16,0,0,1,48,32h64a8,8,0,0,1,0,16H48V208h64A8,8,0,0,1,120,216Zm109.66-93.66-40-40a8,8,0,0,0-11.32,11.32L204.69,120H112a8,8,0,0,0,0,16h92.69l-26.35,26.34a8,8,0,0,0,11.32,11.32l40-40A8,8,0,0,0,229.66,122.34Z"/></svg> Log Out</div></div>
+</aside>
+
+<!-- MAIN -->
+<div class="main">
+  <header class="tb">
+    <div><div class="tb-title" id="vt">Dashboard Overview</div><div class="tb-crumb" id="vc">Admin › Overview</div></div>
+    <div class="tb-search"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M229.66,218.34l-50.07-50.06a88.11,88.11,0,1,0-11.31,11.31l50.06,50.07a8,8,0,0,0,11.32-11.32ZM40,112a72,72,0,1,1,72,72A72.08,72.08,0,0,1,40,112Z"/></svg><input type="text" placeholder="Search buses, routes, drivers…"></div>
+    <div class="tbi" onclick="sv('alerts',document.querySelector('[onclick*=alerts]'))"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M221.8,175.94C216.25,166.38,208,139.33,208,104a80,80,0,1,0-160,0c0,35.34-8.26,62.38-13.81,71.94A16,16,0,0,0,48,200H88.81a40,40,0,0,0,78.38,0H208a16,16,0,0,0,13.8-24.06ZM128,216a24,24,0,0,1-22.62-16h45.24A24,24,0,0,1,128,216ZM48,184c7.7-13.24,16-43.92,16-80a64,64,0,1,1,128,0c0,36.05,8.28,66.73,16,80Z"/></svg><div class="dot"></div></div>
+    <div class="tbi" onclick="showToast('Data refreshed','info')"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M240,56v48a8,8,0,0,1-8,8H184a8,8,0,0,1,0-16h28.69L195.88,79.06A96,96,0,1,0,224,152a8,8,0,1,1,16,0A112,112,0,1,1,210.08,66.94L224,80.67V56a8,8,0,0,1,16,0Z"/></svg></div>
+    <div class="tb-time" id="dts"></div>
+  </header>
+
+  <div class="con">
+
+    <!-- OVERVIEW -->
+    <div class="view active" id="view-overview">
+      <div class="sg">
+        <div class="sc bl"><div class="sc-top"><div class="sico bl"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M184,24H72A32,32,0,0,0,40,56V208a16,16,0,0,0,16,16H56a16,16,0,0,0,16-16V192h112v16a16,16,0,0,0,16,16h0a16,16,0,0,0,16-16V56A32,32,0,0,0,184,24ZM56,168V120H200v48ZM200,104H56V56a16,16,0,0,1,16-16H184a16,16,0,0,1,16,16ZM88,84a12,12,0,1,1-12-12A12,12,0,0,1,88,84Zm92,0a12,12,0,1,1-12-12A12,12,0,0,1,180,84Zm-8,92a12,12,0,1,1-12-12A12,12,0,0,1,172,176Zm-80,0a12,12,0,1,1-12-12A12,12,0,0,1,92,176Z"/></svg></div><div class="strend up">+2 today</div></div><div class="snum">12</div><div class="slbl">Total Buses</div></div>
+        <div class="sc gr"><div class="sc-top"><div class="sico gr"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M173.66,98.34a8,8,0,0,1,0,11.32l-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L112,148.69l50.34-50.35A8,8,0,0,1,173.66,98.34ZM232,128A104,104,0,1,1,128,24,104.11,104.11,0,0,1,232,128Zm-16,0a88,88,0,1,0-88,88A88.1,88.1,0,0,0,216,128Z"/></svg></div><div class="strend up">↑ 83%</div></div><div class="snum">10</div><div class="slbl">Active Now</div></div>
+        <div class="sc am"><div class="sc-top"><div class="sico am"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M244.8,150.4a8,8,0,0,1-11.2-1.6A51.6,51.6,0,0,0,192,128a8,8,0,0,1-7.37-4.89,8,8,0,0,1,7.37-11.11,24,24,0,1,0-23.24-30,8,8,0,1,1-15.5-4A40,40,0,1,1,219,117.51a67.94,67.94,0,0,1,27.43,21.68A8,8,0,0,1,244.8,150.4Zm-24.4,29.12A67.33,67.33,0,0,0,192,136a67.33,67.33,0,0,0-28.4,4.48,8,8,0,1,0,6.24,14.74A51.6,51.6,0,0,1,192,152a51.6,51.6,0,0,1,41.6,20.8,8,8,0,0,0,12.8-9.6A67.33,67.33,0,0,0,220.4,179.52ZM128,80a48,48,0,1,0,48,48A48.05,48.05,0,0,0,128,80Zm0,80a32,32,0,1,1,32-32A32,32,0,0,1,128,160Zm-29.06,18.71A67.39,67.39,0,0,0,64,168a67.39,67.39,0,0,0-34.94,10.71,8,8,0,1,0,8.88,13.28A51.8,51.8,0,0,1,64,184a51.8,51.8,0,0,1,26.06,7.99,8,8,0,0,0,8.88-13.28Z"/></svg></div><div class="strend up">+14 vs yesterday</div></div><div class="snum">847</div><div class="slbl">Students Today</div></div>
+        <div class="sc re"><div class="sc-top"><div class="sico re"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M236,128A108,108,0,1,1,128,20,108.12,108.12,0,0,1,236,128Zm-16,0a92,92,0,1,0-92,92A92.1,92.1,0,0,0,220,128Zm-84,24a8,8,0,0,1-8,8,16,16,0,0,1-16-16V128a8,8,0,0,1,0-16,16,16,0,0,1,16,16v16A8,8,0,0,1,136,152Zm-24-72a12,12,0,1,1,12,12A12,12,0,0,1,112,80Z"/></svg></div><div class="strend dn">3 open</div></div><div class="snum">3</div><div class="slbl">Active Alerts</div></div>
+      </div>
+      <div class="og">
+        <div class="card">
+          <div class="card-hd"><div class="card-title">Fleet Status</div><button class="card-link" onclick="sv('buses',document.querySelector('[onclick*=buses]'))">View all →</button></div>
+          <div class="br"><div class="brid">CB-101</div><div class="bri"><div class="bri-name">RTO → JCER</div><div class="bri-sub">Ravi Patil · 24 passengers</div></div><span class="pill gr"><span class="pd"></span>Active</span></div>
+          <div class="br"><div class="brid">CB-102</div><div class="bri"><div class="bri-name">Sambra → JCER</div><div class="bri-sub">Suresh Kumar · 18 passengers</div></div><span class="pill gr"><span class="pd"></span>Active</span></div>
+          <div class="br"><div class="brid">CB-103</div><div class="bri"><div class="bri-name">Mahantesh Nagar → College</div><div class="bri-sub">Manoj Singh · Heavy traffic</div></div><span class="pill am"><span class="pd"></span>Delayed</span></div>
+          <div class="br"><div class="brid">CB-107</div><div class="bri"><div class="bri-name">Sambra (Evening)</div><div class="bri-sub">Engine warning — off route</div></div><span class="pill re"><span class="pd"></span>Fault</span></div>
+        </div>
+        <div class="card">
+          <div class="card-hd"><div class="card-title">Active Alerts</div><button class="card-link" onclick="sv('alerts',document.querySelector('[onclick*=alerts]'))">View all →</button></div>
+          <div class="ar crit"><div class="aico crit"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M236,128A108,108,0,1,1,128,20,108.12,108.12,0,0,1,236,128Zm-16,0a92,92,0,1,0-92,92A92.1,92.1,0,0,0,220,128Zm-84,24a8,8,0,0,1-8,8,16,16,0,0,1-16-16V128a8,8,0,0,1,0-16,16,16,0,0,1,16,16v16A8,8,0,0,1,136,152Zm-24-72a12,12,0,1,1,12,12A12,12,0,0,1,112,80Z"/></svg></div><div class="ab"><h5>CB-103 Heavy Delay</h5><p>35+ min behind on Mahantesh route</p></div><div class="at">2m</div></div>
+          <div class="ar warn"><div class="aico warn"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M224.52,74.16l-48-32a8,8,0,1,0-8.8,13.37L204,74.67V88a24,24,0,0,0,0,48V200a8,8,0,0,1-16,0V176a24,24,0,0,0-24-24H152V56a16,16,0,0,0-16-16H64A16,16,0,0,0,48,56V216H32a8,8,0,0,0,0,16H176a8,8,0,0,0,0-16H160V168h4a8,8,0,0,1,8,8v24a24,24,0,0,0,48,0V88A8,8,0,0,0,224.52,74.16ZM64,56h72V120H64ZM216,112a8,8,0,1,1,0-16,8,8,0,0,1,0,16Z"/></svg></div><div class="ab"><h5>CB-105 Low Fuel</h5><p>Fuel at 12% — needs refill</p></div><div class="at">15m</div></div>
+          <div class="ar info"><div class="aico info"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M218.6,174.35l-46.36-46.36a8,8,0,0,0-11.31,0L128,161,107.31,140.29l32.92-32.92a8,8,0,0,0,0-11.31L93.87,49.7a47.72,47.72,0,0,0-55.61-8.53A8,8,0,0,0,36,55v.06L68.69,88,56,100.69,23.26,68a8,8,0,0,0-13.83,3.26A48,48,0,0,0,56,128a47.42,47.42,0,0,0,15.37-2.52l21.48,21.48L50.49,189.3a8,8,0,0,0,0,11.32l16,16a8,8,0,0,0,11.31,0l56-56A8,8,0,0,0,136,155l-5.66-5.65,22.63-22.63,45.71,45.7a16,16,0,0,0,22.62,0l1-1a16,16,0,0,0,0-22.62ZM72,208.68,60.68,197.37l41.37-41.37,11.32,11.31Z"/></svg></div><div class="ab"><h5>CB-107 Maintenance</h5><p>Scheduled service overdue 3 days</p></div><div class="at">1h</div></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-hd"><div class="card-title">Route Occupancy Today</div><div style="font-size:11px;color:var(--t3)">240 total capacity</div></div>
+        <div class="ob-row"><div class="ob-name">R.T.O</div><div class="ob-track"><div class="ob-fill" style="width:87%;background:var(--a)"></div></div><div class="ob-val">87%</div></div>
+        <div class="ob-row"><div class="ob-name">Sambra</div><div class="ob-track"><div class="ob-fill" style="width:62%;background:var(--green)"></div></div><div class="ob-val">62%</div></div>
+        <div class="ob-row"><div class="ob-name">Mahantesh Ngr</div><div class="ob-track"><div class="ob-fill" style="width:94%;background:var(--amber)"></div></div><div class="ob-val">94%</div></div>
+        <div class="ob-row"><div class="ob-name">Vadagaon</div><div class="ob-track"><div class="ob-fill" style="width:75%;background:var(--purple)"></div></div><div class="ob-val">75%</div></div>
+        <div class="ob-row"><div class="ob-name">Hanuman Nagar</div><div class="ob-track"><div class="ob-fill" style="width:91%;background:var(--cyan)"></div></div><div class="ob-val">91%</div></div>
+      </div>
+    </div>
+
+    <!-- LIVE MAP -->
+    <div class="view fullmap" id="view-live">
+      <div class="mw">
+        <div id="admin-map"></div>
+        <div class="mp">
+          <div class="ml">
+            <div class="ml-title">Bus Status</div>
+            <div class="ml-item"><div class="ml-dot" style="background:var(--green)"></div>On Route</div>
+            <div class="ml-item"><div class="ml-dot" style="background:var(--amber)"></div>Delayed</div>
+            <div class="ml-item"><div class="ml-dot" style="background:var(--red)"></div>Off Route</div>
+            <div class="ml-item"><div class="ml-dot" style="background:var(--a)"></div>JCER</div>
+          </div>
+          <div class="ms">
+            <div class="ms-row"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0;color:var(--green)"><path d="M184,24H72A32,32,0,0,0,40,56V208a16,16,0,0,0,16,16H56a16,16,0,0,0,16-16V192h112v16a16,16,0,0,0,16,16h0a16,16,0,0,0,16-16V56A32,32,0,0,0,184,24ZM56,168V120H200v48ZM200,104H56V56a16,16,0,0,1,16-16H184a16,16,0,0,1,16,16ZM88,84a12,12,0,1,1-12-12A12,12,0,0,1,88,84Zm92,0a12,12,0,1,1-12-12A12,12,0,0,1,180,84Zm-8,92a12,12,0,1,1-12-12A12,12,0,0,1,172,176Zm-80,0a12,12,0,1,1-12-12A12,12,0,0,1,92,176Z"/></svg>Active buses<span class="ms-val">10</span></div>
+            <div class="ms-row"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0;color:var(--a)"><path d="M117.25,157.92a60,60,0,1,0-66.5,0A95.83,95.83,0,0,0,18.38,180.42a8,8,0,0,0,13.24,9C47.75,166.38,67.39,152,84,152s36.25,14.38,52.38,37.44a8,8,0,0,0,13.24-9A95.83,95.83,0,0,0,117.25,157.92ZM40,112a44,44,0,1,1,44,44A44.05,44.05,0,0,1,40,112Zm210.14,68.42a95.83,95.83,0,0,0-32.37-22.5,60,60,0,1,0-66.5,0,95.83,95.83,0,0,0-32.37,22.5,8,8,0,0,0,13.24,9C148.25,166.38,167.89,152,184,152s35.75,14.38,51.88,37.44a8,8,0,0,0,13.24-9ZM140,112a44,44,0,1,1,44,44A44.05,44.05,0,0,1,140,112Z"/></svg>Passengers<span class="ms-val">847</span></div>
+            <div class="ms-row"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0;color:var(--t2)"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm0,192a88,88,0,1,1,88-88A88.1,88.1,0,0,1,128,216Zm64-88a8,8,0,0,1-8,8H128a8,8,0,0,1-8-8V72a8,8,0,0,1,16,0v48h48A8,8,0,0,1,192,128Z"/></svg>Last sync<span class="ms-val">now</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- BUSES -->
+    <div class="view" id="view-buses">
+      <div class="sh"><div class="sh-l"><h2>Bus Fleet</h2><span>12 buses registered · 10 active</span></div><button class="btn bp" onclick="om('busModal')"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M224,128a8,8,0,0,1-8,8H136v80a8,8,0,0,1-16,0V136H40a8,8,0,0,1,0-16h80V40a8,8,0,0,1,16,0v80h80A8,8,0,0,1,224,128Z"/></svg> Add Bus</button></div>
+      <div class="tw">
+        <div class="tt">
+          <div class="sw2"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M229.66,218.34l-50.07-50.06a88.11,88.11,0,1,0-11.31,11.31l50.06,50.07a8,8,0,0,0,11.32-11.32ZM40,112a72,72,0,1,1,72,72A72.08,72.08,0,0,1,40,112Z"/></svg><input type="text" placeholder="Search bus…" oninput="ft(this,'busT')"></div>
+          <button class="chip active">All</button><button class="chip">On Route</button><button class="chip">Delayed</button><button class="chip">Offline</button>
+          <button class="btn bg" style="margin-left:auto"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M224,152v56a16,16,0,0,1-16,16H48a16,16,0,0,1-16-16V152a8,8,0,0,1,16,0v56H208V152a8,8,0,0,1,16,0Zm-101.66,5.66a8,8,0,0,0,11.32,0l40-40a8,8,0,0,0-11.32-11.32L136,132.69V40a8,8,0,0,0-16,0v92.69L93.66,106.34a8,8,0,0,0-11.32,11.32Z"/></svg> Export</button>
+        </div>
+        <table id="busT">
+          <thead><tr><th>Bus No.</th><th>Plate</th><th>Route</th><th>Driver</th><th>Cap.</th><th>Pax</th><th>Status</th><th>Actions</th></tr></thead>
+          <tbody>
+            <tr><td class="tb2 mo">CB-101</td><td class="mo mu">KA-23-B-4521</td><td>R.T.O</td><td>Ravi Patil</td><td>50</td><td class="mo">24</td><td><span class="pill gr"><span class="pd"></span>On Route</span></td><td><div class="acts"><button class="act p" onclick="om('busModal')" title="Edit"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M227.31,73.37,182.63,28.68a16,16,0,0,0-22.63,0L36.69,152A15.86,15.86,0,0,0,32,163.31V208a16,16,0,0,0,16,16H92.69A15.86,15.86,0,0,0,104,219.31L227.31,96a16,16,0,0,0,0-22.63ZM92.69,208H48V163.31l88-88L180.69,120ZM192,108.68,147.31,64l24-24L216,84.68Z"/></svg></button><button class="act" onclick="sv('live',document.querySelector('[onclick*=live]'))" title="Track"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M128,16a96,96,0,1,0,96,96A96.11,96.11,0,0,0,128,16Zm0,176a80,80,0,1,1,80-80A80.09,80.09,0,0,1,128,192Zm32-80a32,32,0,1,1-32-32A32,32,0,0,1,160,112Z"/></svg></button><button class="act d" onclick="dr(this,'CB-101')" title="Remove"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M216,48H176V40a24,24,0,0,0-24-24H104A24,24,0,0,0,80,40v8H40a8,8,0,0,0,0,16h8V208a16,16,0,0,0,16,16H192a16,16,0,0,0,16-16V64h8a8,8,0,0,0,0-16ZM96,40a8,8,0,0,1,8-8h48a8,8,0,0,1,8,8v8H96Zm96,168H64V64H192ZM112,104v64a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Zm48,0v64a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Z"/></svg></button></div></td></tr>
+            <tr><td class="tb2 mo">CB-102</td><td class="mo mu">KA-23-B-4522</td><td>Sambra</td><td>Suresh Kumar</td><td>45</td><td class="mo">18</td><td><span class="pill gr"><span class="pd"></span>On Route</span></td><td><div class="acts"><button class="act p" onclick="om('busModal')" title="Edit"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M227.31,73.37,182.63,28.68a16,16,0,0,0-22.63,0L36.69,152A15.86,15.86,0,0,0,32,163.31V208a16,16,0,0,0,16,16H92.69A15.86,15.86,0,0,0,104,219.31L227.31,96a16,16,0,0,0,0-22.63ZM92.69,208H48V163.31l88-88L180.69,120ZM192,108.68,147.31,64l24-24L216,84.68Z"/></svg></button><button class="act" onclick="sv('live',document.querySelector('[onclick*=live]'))" title="Track"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M128,16a96,96,0,1,0,96,96A96.11,96.11,0,0,0,128,16Zm0,176a80,80,0,1,1,80-80A80.09,80.09,0,0,1,128,192Zm32-80a32,32,0,1,1-32-32A32,32,0,0,1,160,112Z"/></svg></button><button class="act d" onclick="dr(this,'CB-102')" title="Remove"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M216,48H176V40a24,24,0,0,0-24-24H104A24,24,0,0,0,80,40v8H40a8,8,0,0,0,0,16h8V208a16,16,0,0,0,16,16H192a16,16,0,0,0,16-16V64h8a8,8,0,0,0,0-16ZM96,40a8,8,0,0,1,8-8h48a8,8,0,0,1,8,8v8H96Zm96,168H64V64H192ZM112,104v64a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Zm48,0v64a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Z"/></svg></button></div></td></tr>
+            <tr><td class="tb2 mo">CB-103</td><td class="mo mu">KA-23-B-4523</td><td>Mahantesh Nagar</td><td>Manoj Singh</td><td>50</td><td class="mo">31</td><td><span class="pill am"><span class="pd"></span>Delayed</span></td><td><div class="acts"><button class="act p" onclick="om('busModal')" title="Edit"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M227.31,73.37,182.63,28.68a16,16,0,0,0-22.63,0L36.69,152A15.86,15.86,0,0,0,32,163.31V208a16,16,0,0,0,16,16H92.69A15.86,15.86,0,0,0,104,219.31L227.31,96a16,16,0,0,0,0-22.63ZM92.69,208H48V163.31l88-88L180.69,120ZM192,108.68,147.31,64l24-24L216,84.68Z"/></svg></button><button class="act" onclick="sv('live',document.querySelector('[onclick*=live]'))" title="Track"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M128,16a96,96,0,1,0,96,96A96.11,96.11,0,0,0,128,16Zm0,176a80,80,0,1,1,80-80A80.09,80.09,0,0,1,128,192Zm32-80a32,32,0,1,1-32-32A32,32,0,0,1,160,112Z"/></svg></button><button class="act d" onclick="dr(this,'CB-103')" title="Remove"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M216,48H176V40a24,24,0,0,0-24-24H104A24,24,0,0,0,80,40v8H40a8,8,0,0,0,0,16h8V208a16,16,0,0,0,16,16H192a16,16,0,0,0,16-16V64h8a8,8,0,0,0,0-16ZM96,40a8,8,0,0,1,8-8h48a8,8,0,0,1,8,8v8H96Zm96,168H64V64H192ZM112,104v64a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Zm48,0v64a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Z"/></svg></button></div></td></tr>
+            <tr><td class="tb2 mo">CB-104</td><td class="mo mu">KA-23-B-4524</td><td>Vadagaon</td><td>Akshay Desai</td><td>42</td><td class="mo">22</td><td><span class="pill gr"><span class="pd"></span>On Route</span></td><td><div class="acts"><button class="act p" onclick="om('busModal')" title="Edit"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M227.31,73.37,182.63,28.68a16,16,0,0,0-22.63,0L36.69,152A15.86,15.86,0,0,0,32,163.31V208a16,16,0,0,0,16,16H92.69A15.86,15.86,0,0,0,104,219.31L227.31,96a16,16,0,0,0,0-22.63ZM92.69,208H48V163.31l88-88L180.69,120ZM192,108.68,147.31,64l24-24L216,84.68Z"/></svg></button><button class="act" onclick="sv('live',document.querySelector('[onclick*=live]'))" title="Track"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M128,16a96,96,0,1,0,96,96A96.11,96.11,0,0,0,128,16Zm0,176a80,80,0,1,1,80-80A80.09,80.09,0,0,1,128,192Zm32-80a32,32,0,1,1-32-32A32,32,0,0,1,160,112Z"/></svg></button><button class="act d" onclick="dr(this,'CB-104')" title="Remove"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M216,48H176V40a24,24,0,0,0-24-24H104A24,24,0,0,0,80,40v8H40a8,8,0,0,0,0,16h8V208a16,16,0,0,0,16,16H192a16,16,0,0,0,16-16V64h8a8,8,0,0,0,0-16ZM96,40a8,8,0,0,1,8-8h48a8,8,0,0,1,8,8v8H96Zm96,168H64V64H192ZM112,104v64a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Zm48,0v64a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Z"/></svg></button></div></td></tr>
+            <tr><td class="tb2 mo">CB-105</td><td class="mo mu">KA-23-B-4525</td><td>Hanuman Nagar</td><td>Rahul Naik</td><td>50</td><td class="mo">29</td><td><span class="pill gr"><span class="pd"></span>On Route</span></td><td><div class="acts"><button class="act p" onclick="om('busModal')" title="Edit"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M227.31,73.37,182.63,28.68a16,16,0,0,0-22.63,0L36.69,152A15.86,15.86,0,0,0,32,163.31V208a16,16,0,0,0,16,16H92.69A15.86,15.86,0,0,0,104,219.31L227.31,96a16,16,0,0,0,0-22.63ZM92.69,208H48V163.31l88-88L180.69,120ZM192,108.68,147.31,64l24-24L216,84.68Z"/></svg></button><button class="act" onclick="sv('live',document.querySelector('[onclick*=live]'))" title="Track"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M128,16a96,96,0,1,0,96,96A96.11,96.11,0,0,0,128,16Zm0,176a80,80,0,1,1,80-80A80.09,80.09,0,0,1,128,192Zm32-80a32,32,0,1,1-32-32A32,32,0,0,1,160,112Z"/></svg></button><button class="act d" onclick="dr(this,'CB-105')" title="Remove"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M216,48H176V40a24,24,0,0,0-24-24H104A24,24,0,0,0,80,40v8H40a8,8,0,0,0,0,16h8V208a16,16,0,0,0,16,16H192a16,16,0,0,0,16-16V64h8a8,8,0,0,0,0-16ZM96,40a8,8,0,0,1,8-8h48a8,8,0,0,1,8,8v8H96Zm96,168H64V64H192ZM112,104v64a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Zm48,0v64a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Z"/></svg></button></div></td></tr>
+            <tr><td class="tb2 mo">CB-107</td><td class="mo mu">KA-23-B-4527</td><td>Sambra (Eve)</td><td>—</td><td>45</td><td class="mo">0</td><td><span class="pill pu"><span class="pd"></span>Maintenance</span></td><td><div class="acts"><button class="act p" onclick="om('busModal')" title="Edit"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M227.31,73.37,182.63,28.68a16,16,0,0,0-22.63,0L36.69,152A15.86,15.86,0,0,0,32,163.31V208a16,16,0,0,0,16,16H92.69A15.86,15.86,0,0,0,104,219.31L227.31,96a16,16,0,0,0,0-22.63ZM92.69,208H48V163.31l88-88L180.69,120ZM192,108.68,147.31,64l24-24L216,84.68Z"/></svg></button><button class="act" onclick="sv('live',document.querySelector('[onclick*=live]'))" title="Track"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M128,16a96,96,0,1,0,96,96A96.11,96.11,0,0,0,128,16Zm0,176a80,80,0,1,1,80-80A80.09,80.09,0,0,1,128,192Zm32-80a32,32,0,1,1-32-32A32,32,0,0,1,160,112Z"/></svg></button><button class="act d" onclick="dr(this,'CB-107')" title="Remove"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M216,48H176V40a24,24,0,0,0-24-24H104A24,24,0,0,0,80,40v8H40a8,8,0,0,0,0,16h8V208a16,16,0,0,0,16,16H192a16,16,0,0,0,16-16V64h8a8,8,0,0,0,0-16ZM96,40a8,8,0,0,1,8-8h48a8,8,0,0,1,8,8v8H96Zm96,168H64V64H192ZM112,104v64a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Zm48,0v64a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Z"/></svg></button></div></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- DRIVERS -->
+    <div class="view" id="view-drivers">
+      <div class="sh"><div class="sh-l"><h2>Driver Management</h2><span>9 drivers · 6 on duty</span></div><button class="btn bp" onclick="om('driverModal')"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M224,128a8,8,0,0,1-8,8H136v80a8,8,0,0,1-16,0V136H40a8,8,0,0,1,0-16h80V40a8,8,0,0,1,16,0v80h80A8,8,0,0,1,224,128Z"/></svg> Add Driver</button></div>
+      <div class="tw">
+        <div class="tt">
+          <div class="sw2"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M229.66,218.34l-50.07-50.06a88.11,88.11,0,1,0-11.31,11.31l50.06,50.07a8,8,0,0,0,11.32-11.32ZM40,112a72,72,0,1,1,72,72A72.08,72.08,0,0,1,40,112Z"/></svg><input type="text" placeholder="Search driver…" oninput="ft(this,'drvT')"></div>
+          <button class="btn bg"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M224,152v56a16,16,0,0,1-16,16H48a16,16,0,0,1-16-16V152a8,8,0,0,1,16,0v56H208V152a8,8,0,0,1,16,0Zm-101.66,5.66a8,8,0,0,0,11.32,0l40-40a8,8,0,0,0-11.32-11.32L136,132.69V40a8,8,0,0,0-16,0v92.69L93.66,106.34a8,8,0,0,0-11.32,11.32Z"/></svg> Export</button>
+        </div>
+        <table id="drvT">
+          <thead><tr><th>Name</th><th>Phone</th><th>License</th><th>Expiry</th><th>Bus</th><th>Route</th><th>Broadcasting</th><th>Status</th><th>Actions</th></tr></thead>
+          <tbody>
+            <tr><td class="tb2">Ravi Patil</td><td class="mo">98765-43210</td><td class="mo">KA-DL-2018-001</td><td class="mo">2026-11</td><td class="mo">CB-101</td><td>R.T.O</td><td><span class="pill cy"><span class="pd"></span>Live</span></td><td><span class="pill gr"><span class="pd"></span>Active</span></td><td><div class="acts"><button class="act p" onclick="om('driverModal')" title="Edit"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M227.31,73.37,182.63,28.68a16,16,0,0,0-22.63,0L36.69,152A15.86,15.86,0,0,0,32,163.31V208a16,16,0,0,0,16,16H92.69A15.86,15.86,0,0,0,104,219.31L227.31,96a16,16,0,0,0,0-22.63ZM92.69,208H48V163.31l88-88L180.69,120ZM192,108.68,147.31,64l24-24L216,84.68Z"/></svg></button><button class="act d" onclick="dr(this,'Ravi Patil')" title="Remove"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M216,48H176V40a24,24,0,0,0-24-24H104A24,24,0,0,0,80,40v8H40a8,8,0,0,0,0,16h8V208a16,16,0,0,0,16,16H192a16,16,0,0,0,16-16V64h8a8,8,0,0,0,0-16ZM96,40a8,8,0,0,1,8-8h48a8,8,0,0,1,8,8v8H96Zm96,168H64V64H192ZM112,104v64a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Zm48,0v64a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Z"/></svg></button></div></td></tr>
+            <tr><td class="tb2">Suresh Kumar</td><td class="mo">98765-43211</td><td class="mo">KA-DL-2017-002</td><td class="mo">2025-08</td><td class="mo">CB-102</td><td>Sambra</td><td><span class="pill cy"><span class="pd"></span>Live</span></td><td><span class="pill gr"><span class="pd"></span>Active</span></td><td><div class="acts"><button class="act p" onclick="om('driverModal')" title="Edit"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M227.31,73.37,182.63,28.68a16,16,0,0,0-22.63,0L36.69,152A15.86,15.86,0,0,0,32,163.31V208a16,16,0,0,0,16,16H92.69A15.86,15.86,0,0,0,104,219.31L227.31,96a16,16,0,0,0,0-22.63ZM92.69,208H48V163.31l88-88L180.69,120ZM192,108.68,147.31,64l24-24L216,84.68Z"/></svg></button><button class="act d" onclick="dr(this,'Suresh Kumar')" title="Remove"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M216,48H176V40a24,24,0,0,0-24-24H104A24,24,0,0,0,80,40v8H40a8,8,0,0,0,0,16h8V208a16,16,0,0,0,16,16H192a16,16,0,0,0,16-16V64h8a8,8,0,0,0,0-16ZM96,40a8,8,0,0,1,8-8h48a8,8,0,0,1,8,8v8H96Zm96,168H64V64H192ZM112,104v64a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Zm48,0v64a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Z"/></svg></button></div></td></tr>
+            <tr><td class="tb2">Manoj Singh</td><td class="mo">98765-43212</td><td class="mo">KA-DL-2019-003</td><td class="mo">2027-03</td><td class="mo">CB-103</td><td>Mahantesh</td><td><span class="pill am"><span class="pd"></span>Delayed</span></td><td><span class="pill gr"><span class="pd"></span>Active</span></td><td><div class="acts"><button class="act p" onclick="om('driverModal')" title="Edit"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M227.31,73.37,182.63,28.68a16,16,0,0,0-22.63,0L36.69,152A15.86,15.86,0,0,0,32,163.31V208a16,16,0,0,0,16,16H92.69A15.86,15.86,0,0,0,104,219.31L227.31,96a16,16,0,0,0,0-22.63ZM92.69,208H48V163.31l88-88L180.69,120ZM192,108.68,147.31,64l24-24L216,84.68Z"/></svg></button><button class="act d" onclick="dr(this,'Manoj Singh')" title="Remove"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M216,48H176V40a24,24,0,0,0-24-24H104A24,24,0,0,0,80,40v8H40a8,8,0,0,0,0,16h8V208a16,16,0,0,0,16,16H192a16,16,0,0,0,16-16V64h8a8,8,0,0,0,0-16ZM96,40a8,8,0,0,1,8-8h48a8,8,0,0,1,8,8v8H96Zm96,168H64V64H192ZM112,104v64a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Zm48,0v64a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Z"/></svg></button></div></td></tr>
+            <tr><td class="tb2">Akshay Desai</td><td class="mo">98765-43213</td><td class="mo">KA-DL-2020-004</td><td class="mo">2026-06</td><td class="mo">CB-104</td><td>Vadagaon</td><td><span class="pill cy"><span class="pd"></span>Live</span></td><td><span class="pill gr"><span class="pd"></span>Active</span></td><td><div class="acts"><button class="act p" onclick="om('driverModal')" title="Edit"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M227.31,73.37,182.63,28.68a16,16,0,0,0-22.63,0L36.69,152A15.86,15.86,0,0,0,32,163.31V208a16,16,0,0,0,16,16H92.69A15.86,15.86,0,0,0,104,219.31L227.31,96a16,16,0,0,0,0-22.63ZM92.69,208H48V163.31l88-88L180.69,120ZM192,108.68,147.31,64l24-24L216,84.68Z"/></svg></button><button class="act d" onclick="dr(this,'Akshay Desai')" title="Remove"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M216,48H176V40a24,24,0,0,0-24-24H104A24,24,0,0,0,80,40v8H40a8,8,0,0,0,0,16h8V208a16,16,0,0,0,16,16H192a16,16,0,0,0,16-16V64h8a8,8,0,0,0,0-16ZM96,40a8,8,0,0,1,8-8h48a8,8,0,0,1,8,8v8H96Zm96,168H64V64H192ZM112,104v64a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Zm48,0v64a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Z"/></svg></button></div></td></tr>
+            <tr><td class="tb2">Rahul Naik</td><td class="mo">98765-43214</td><td class="mo">KA-DL-2016-005</td><td class="mo">2025-12</td><td class="mo">CB-105</td><td>Hanuman</td><td><span class="pill cy"><span class="pd"></span>Live</span></td><td><span class="pill gr"><span class="pd"></span>Active</span></td><td><div class="acts"><button class="act p" onclick="om('driverModal')" title="Edit"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M227.31,73.37,182.63,28.68a16,16,0,0,0-22.63,0L36.69,152A15.86,15.86,0,0,0,32,163.31V208a16,16,0,0,0,16,16H92.69A15.86,15.86,0,0,0,104,219.31L227.31,96a16,16,0,0,0,0-22.63ZM92.69,208H48V163.31l88-88L180.69,120ZM192,108.68,147.31,64l24-24L216,84.68Z"/></svg></button><button class="act d" onclick="dr(this,'Rahul Naik')" title="Remove"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M216,48H176V40a24,24,0,0,0-24-24H104A24,24,0,0,0,80,40v8H40a8,8,0,0,0,0,16h8V208a16,16,0,0,0,16,16H192a16,16,0,0,0,16-16V64h8a8,8,0,0,0,0-16ZM96,40a8,8,0,0,1,8-8h48a8,8,0,0,1,8,8v8H96Zm96,168H64V64H192ZM112,104v64a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Zm48,0v64a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Z"/></svg></button></div></td></tr>
+            <tr><td class="tb2">Dinesh Rao</td><td class="mo">98765-43215</td><td class="mo">KA-DL-2021-006</td><td class="mo">2028-01</td><td>—</td><td>—</td><td><span class="pill gy">Offline</span></td><td><span class="pill am"><span class="pd"></span>Unassigned</span></td><td><div class="acts"><button class="act p" onclick="om('driverModal')" title="Edit"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M227.31,73.37,182.63,28.68a16,16,0,0,0-22.63,0L36.69,152A15.86,15.86,0,0,0,32,163.31V208a16,16,0,0,0,16,16H92.69A15.86,15.86,0,0,0,104,219.31L227.31,96a16,16,0,0,0,0-22.63ZM92.69,208H48V163.31l88-88L180.69,120ZM192,108.68,147.31,64l24-24L216,84.68Z"/></svg></button><button class="act s" title="Assign"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M137.54,186.36a8,8,0,0,1,0,11.31l-9.94,10A56,56,0,0,1,48.38,128.4L72.5,104.28A56,56,0,0,1,149.31,102a8,8,0,1,1-10.64,12,40,40,0,0,0-54.85,1.63L59.7,139.72a40,40,0,0,0,56.58,56.58l9.94-9.94A8,8,0,0,1,137.54,186.36Zm70.08-138a56.08,56.08,0,0,0-79.22,0l-9.94,9.95a8,8,0,0,0,11.32,11.31l9.94-9.94a40,40,0,0,1,56.58,56.58L172.18,140.4A40,40,0,0,1,117.33,142,8,8,0,1,0,106.69,154a56,56,0,0,0,76.81-2.26l24.12-24.12A56.08,56.08,0,0,0,207.62,48.38Z"/></svg></button><button class="act d" onclick="dr(this,'Dinesh Rao')" title="Remove"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M216,48H176V40a24,24,0,0,0-24-24H104A24,24,0,0,0,80,40v8H40a8,8,0,0,0,0,16h8V208a16,16,0,0,0,16,16H192a16,16,0,0,0,16-16V64h8a8,8,0,0,0,0-16ZM96,40a8,8,0,0,1,8-8h48a8,8,0,0,1,8,8v8H96Zm96,168H64V64H192ZM112,104v64a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Zm48,0v64a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Z"/></svg></button></div></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ROUTES -->
+    <div class="view" id="view-routes">
+      <div class="sh"><div class="sh-l"><h2>Route Management</h2><span>5 active routes · full edit &amp; stop control</span></div><button class="btn bp" onclick="om('routeModal')"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M224,128a8,8,0,0,1-8,8H136v80a8,8,0,0,1-16,0V136H40a8,8,0,0,1,0-16h80V40a8,8,0,0,1,16,0v80h80A8,8,0,0,1,224,128Z"/></svg> Add Route</button></div>
+      <div class="tw" style="margin-bottom:18px">
+        <div class="tt">
+          <div class="sw2"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M229.66,218.34l-50.07-50.06a88.11,88.11,0,1,0-11.31,11.31l50.06,50.07a8,8,0,0,0,11.32-11.32ZM40,112a72,72,0,1,1,72,72A72.08,72.08,0,0,1,40,112Z"/></svg><input type="text" placeholder="Search route…" oninput="ft(this,'rtT')"></div>
+          <button class="btn bg"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M224,152v56a16,16,0,0,1-16,16H48a16,16,0,0,1-16-16V152a8,8,0,0,1,16,0v56H208V152a8,8,0,0,1,16,0Zm-101.66,5.66a8,8,0,0,0,11.32,0l40-40a8,8,0,0,0-11.32-11.32L136,132.69V40a8,8,0,0,0-16,0v92.69L93.66,106.34a8,8,0,0,0-11.32,11.32Z"/></svg> Export</button>
+        </div>
+        <table id="rtT">
+          <thead><tr><th>Route Name</th><th>Bus</th><th>Stops</th><th>Distance</th><th>Duration</th><th>Students</th><th>Departs</th><th>Status</th><th>Actions</th></tr></thead>
+          <tbody id="rtBody">
+            <tr><td class="tb2">R.T.O</td><td class="mo">CB-101</td><td>12</td><td>18 km</td><td>~35 min</td><td>248</td><td class="mo">07:00</td><td><span class="pill gr"><span class="pd"></span>Active</span></td><td><div class="acts"><button class="act p" onclick="er('R.T.O')" title="Edit"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M227.31,73.37,182.63,28.68a16,16,0,0,0-22.63,0L36.69,152A15.86,15.86,0,0,0,32,163.31V208a16,16,0,0,0,16,16H92.69A15.86,15.86,0,0,0,104,219.31L227.31,96a16,16,0,0,0,0-22.63ZM92.69,208H48V163.31l88-88L180.69,120ZM192,108.68,147.31,64l24-24L216,84.68Z"/></svg></button><button class="act" onclick="vrm('R.T.O')" title="Map"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M228.92,49.69a8,8,0,0,0-6.86-1.45L160.93,63.52,99.58,32.84a8,8,0,0,0-6.46-.3L26.34,58.42A8,8,0,0,0,21,66V208a8,8,0,0,0,10.92,7.43l61.13-24.39,61.35,30.68A8.15,8.15,0,0,0,158,222a8,8,0,0,0,2.93-.55l66.8-25.88A8,8,0,0,0,235,188V56A8,8,0,0,0,228.92,49.69ZM96,55.75l64,32V200.25l-64-32ZM37,75.14l43-16.64V193.36L37,208.36ZM219,180.86l-43,16.64V62.64l43-16.64Z"/></svg></button><button class="act d" onclick="dr(this,'R.T.O')" title="Remove"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M116,128V48a12,12,0,0,1,24,0v80a12,12,0,0,1-24,0Zm58.69-82.93a12,12,0,1,0-13.38,19.86C184.28,76.63,196,101.06,196,128a68,68,0,0,1-136,0c0-26.94,11.72-51.37,34.69-63.07A12,12,0,1,0,81.31,45.07,92,92,0,1,0,220,128C220,101.06,208.28,76.63,174.69,45.07Z"/></svg></button></div></td></tr>
+            <tr><td class="tb2">Sambra</td><td class="mo">CB-102</td><td>8</td><td>22 km</td><td>~42 min</td><td>187</td><td class="mo">07:05</td><td><span class="pill gr"><span class="pd"></span>Active</span></td><td><div class="acts"><button class="act p" onclick="er('Sambra')" title="Edit"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M227.31,73.37,182.63,28.68a16,16,0,0,0-22.63,0L36.69,152A15.86,15.86,0,0,0,32,163.31V208a16,16,0,0,0,16,16H92.69A15.86,15.86,0,0,0,104,219.31L227.31,96a16,16,0,0,0,0-22.63ZM92.69,208H48V163.31l88-88L180.69,120ZM192,108.68,147.31,64l24-24L216,84.68Z"/></svg></button><button class="act" onclick="vrm('Sambra')" title="Map"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M228.92,49.69a8,8,0,0,0-6.86-1.45L160.93,63.52,99.58,32.84a8,8,0,0,0-6.46-.3L26.34,58.42A8,8,0,0,0,21,66V208a8,8,0,0,0,10.92,7.43l61.13-24.39,61.35,30.68A8.15,8.15,0,0,0,158,222a8,8,0,0,0,2.93-.55l66.8-25.88A8,8,0,0,0,235,188V56A8,8,0,0,0,228.92,49.69ZM96,55.75l64,32V200.25l-64-32ZM37,75.14l43-16.64V193.36L37,208.36ZM219,180.86l-43,16.64V62.64l43-16.64Z"/></svg></button><button class="act d" onclick="dr(this,'Sambra')" title="Remove"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M116,128V48a12,12,0,0,1,24,0v80a12,12,0,0,1-24,0Zm58.69-82.93a12,12,0,1,0-13.38,19.86C184.28,76.63,196,101.06,196,128a68,68,0,0,1-136,0c0-26.94,11.72-51.37,34.69-63.07A12,12,0,1,0,81.31,45.07,92,92,0,1,0,220,128C220,101.06,208.28,76.63,174.69,45.07Z"/></svg></button></div></td></tr>
+            <tr><td class="tb2">Mahantesh Nagar</td><td class="mo">CB-103</td><td>10</td><td>14 km</td><td>~28 min</td><td>220</td><td class="mo">07:10</td><td><span class="pill am"><span class="pd"></span>Delayed</span></td><td><div class="acts"><button class="act p" onclick="er('Mahantesh')" title="Edit"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M227.31,73.37,182.63,28.68a16,16,0,0,0-22.63,0L36.69,152A15.86,15.86,0,0,0,32,163.31V208a16,16,0,0,0,16,16H92.69A15.86,15.86,0,0,0,104,219.31L227.31,96a16,16,0,0,0,0-22.63ZM92.69,208H48V163.31l88-88L180.69,120ZM192,108.68,147.31,64l24-24L216,84.68Z"/></svg></button><button class="act" onclick="vrm('Mahantesh')" title="Map"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M228.92,49.69a8,8,0,0,0-6.86-1.45L160.93,63.52,99.58,32.84a8,8,0,0,0-6.46-.3L26.34,58.42A8,8,0,0,0,21,66V208a8,8,0,0,0,10.92,7.43l61.13-24.39,61.35,30.68A8.15,8.15,0,0,0,158,222a8,8,0,0,0,2.93-.55l66.8-25.88A8,8,0,0,0,235,188V56A8,8,0,0,0,228.92,49.69ZM96,55.75l64,32V200.25l-64-32ZM37,75.14l43-16.64V193.36L37,208.36ZM219,180.86l-43,16.64V62.64l43-16.64Z"/></svg></button><button class="act d" onclick="dr(this,'Mahantesh')" title="Remove"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M116,128V48a12,12,0,0,1,24,0v80a12,12,0,0,1-24,0Zm58.69-82.93a12,12,0,1,0-13.38,19.86C184.28,76.63,196,101.06,196,128a68,68,0,0,1-136,0c0-26.94,11.72-51.37,34.69-63.07A12,12,0,1,0,81.31,45.07,92,92,0,1,0,220,128C220,101.06,208.28,76.63,174.69,45.07Z"/></svg></button></div></td></tr>
+            <tr><td class="tb2">Vadagaon</td><td class="mo">CB-104</td><td>10</td><td>16 km</td><td>~32 min</td><td>195</td><td class="mo">07:00</td><td><span class="pill gr"><span class="pd"></span>Active</span></td><td><div class="acts"><button class="act p" onclick="er('Vadagaon')" title="Edit"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M227.31,73.37,182.63,28.68a16,16,0,0,0-22.63,0L36.69,152A15.86,15.86,0,0,0,32,163.31V208a16,16,0,0,0,16,16H92.69A15.86,15.86,0,0,0,104,219.31L227.31,96a16,16,0,0,0,0-22.63ZM92.69,208H48V163.31l88-88L180.69,120ZM192,108.68,147.31,64l24-24L216,84.68Z"/></svg></button><button class="act" onclick="vrm('Vadagaon')" title="Map"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M228.92,49.69a8,8,0,0,0-6.86-1.45L160.93,63.52,99.58,32.84a8,8,0,0,0-6.46-.3L26.34,58.42A8,8,0,0,0,21,66V208a8,8,0,0,0,10.92,7.43l61.13-24.39,61.35,30.68A8.15,8.15,0,0,0,158,222a8,8,0,0,0,2.93-.55l66.8-25.88A8,8,0,0,0,235,188V56A8,8,0,0,0,228.92,49.69ZM96,55.75l64,32V200.25l-64-32ZM37,75.14l43-16.64V193.36L37,208.36ZM219,180.86l-43,16.64V62.64l43-16.64Z"/></svg></button><button class="act d" onclick="dr(this,'Vadagaon')" title="Remove"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M116,128V48a12,12,0,0,1,24,0v80a12,12,0,0,1-24,0Zm58.69-82.93a12,12,0,1,0-13.38,19.86C184.28,76.63,196,101.06,196,128a68,68,0,0,1-136,0c0-26.94,11.72-51.37,34.69-63.07A12,12,0,1,0,81.31,45.07,92,92,0,1,0,220,128C220,101.06,208.28,76.63,174.69,45.07Z"/></svg></button></div></td></tr>
+            <tr><td class="tb2">Hanuman Nagar</td><td class="mo">CB-105</td><td>15</td><td>26 km</td><td>~50 min</td><td>390</td><td class="mo">06:55</td><td><span class="pill gr"><span class="pd"></span>Active</span></td><td><div class="acts"><button class="act p" onclick="er('Hanuman')" title="Edit"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M227.31,73.37,182.63,28.68a16,16,0,0,0-22.63,0L36.69,152A15.86,15.86,0,0,0,32,163.31V208a16,16,0,0,0,16,16H92.69A15.86,15.86,0,0,0,104,219.31L227.31,96a16,16,0,0,0,0-22.63ZM92.69,208H48V163.31l88-88L180.69,120ZM192,108.68,147.31,64l24-24L216,84.68Z"/></svg></button><button class="act" onclick="vrm('Hanuman')" title="Map"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M228.92,49.69a8,8,0,0,0-6.86-1.45L160.93,63.52,99.58,32.84a8,8,0,0,0-6.46-.3L26.34,58.42A8,8,0,0,0,21,66V208a8,8,0,0,0,10.92,7.43l61.13-24.39,61.35,30.68A8.15,8.15,0,0,0,158,222a8,8,0,0,0,2.93-.55l66.8-25.88A8,8,0,0,0,235,188V56A8,8,0,0,0,228.92,49.69ZM96,55.75l64,32V200.25l-64-32ZM37,75.14l43-16.64V193.36L37,208.36ZM219,180.86l-43,16.64V62.64l43-16.64Z"/></svg></button><button class="act d" onclick="dr(this,'Hanuman')" title="Remove"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M116,128V48a12,12,0,0,1,24,0v80a12,12,0,0,1-24,0Zm58.69-82.93a12,12,0,1,0-13.38,19.86C184.28,76.63,196,101.06,196,128a68,68,0,0,1-136,0c0-26.94,11.72-51.37,34.69-63.07A12,12,0,1,0,81.31,45.07,92,92,0,1,0,220,128C220,101.06,208.28,76.63,174.69,45.07Z"/></svg></button></div></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div style="font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.7px;margin-bottom:11px">Route Cards — Visual Overview</div>
+      <div class="rc-grid">
+        <div class="rc" data-c="blue"><div class="rc-hd"><div><div class="rc-name">R.T.O Route</div><div class="rc-id">CB-101 · Ravi Patil</div></div><span class="pill gr"><span class="pd"></span>Active</span></div><div class="rc-sg"><div class="rc-s"><div class="rc-s-l">Stops</div><div class="rc-s-v">12</div></div><div class="rc-s"><div class="rc-s-l">Distance</div><div class="rc-s-v">18 km</div></div><div class="rc-s"><div class="rc-s-l">Students</div><div class="rc-s-v">248</div></div><div class="rc-s"><div class="rc-s-l">Duration</div><div class="rc-s-v">~35m</div></div></div><div class="rc-stops-label">Key Stops</div><div><div class="rc-stop"><div class="rc-stop-dot" style="background:var(--a)"></div>R.T.O Circle (Start)</div><div class="rc-stop"><div class="rc-stop-dot" style="background:var(--t3)"></div>Subhash Nagar</div><div class="rc-stop"><div class="rc-stop-dot" style="background:var(--t3)"></div>Mahantesh Nagar</div><div class="rc-stop"><div class="rc-stop-dot" style="background:var(--green)"></div>JCER (End)</div></div><div class="rc-acts"><button class="rc-btn" onclick="er('R.T.O')"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M227.31,73.37,182.63,28.68a16,16,0,0,0-22.63,0L36.69,152A15.86,15.86,0,0,0,32,163.31V208a16,16,0,0,0,16,16H92.69A15.86,15.86,0,0,0,104,219.31L227.31,96a16,16,0,0,0,0-22.63ZM92.69,208H48V163.31l88-88L180.69,120ZM192,108.68,147.31,64l24-24L216,84.68Z"/></svg> Edit</button><button class="rc-btn p" onclick="vrm('R.T.O')"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M228.92,49.69a8,8,0,0,0-6.86-1.45L160.93,63.52,99.58,32.84a8,8,0,0,0-6.46-.3L26.34,58.42A8,8,0,0,0,21,66V208a8,8,0,0,0,10.92,7.43l61.13-24.39,61.35,30.68A8.15,8.15,0,0,0,158,222a8,8,0,0,0,2.93-.55l66.8-25.88A8,8,0,0,0,235,188V56A8,8,0,0,0,228.92,49.69ZM96,55.75l64,32V200.25l-64-32ZM37,75.14l43-16.64V193.36L37,208.36ZM219,180.86l-43,16.64V62.64l43-16.64Z"/></svg> Map</button><button class="rc-btn d" onclick="showToast('Route paused','error')"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M116,128V48a12,12,0,0,1,24,0v80a12,12,0,0,1-24,0Zm58.69-82.93a12,12,0,1,0-13.38,19.86C184.28,76.63,196,101.06,196,128a68,68,0,0,1-136,0c0-26.94,11.72-51.37,34.69-63.07A12,12,0,1,0,81.31,45.07,92,92,0,1,0,220,128C220,101.06,208.28,76.63,174.69,45.07Z"/></svg> Stop</button></div></div>
+        <div class="rc" data-c="green"><div class="rc-hd"><div><div class="rc-name">Sambra Route</div><div class="rc-id">CB-102 · Suresh Kumar</div></div><span class="pill gr"><span class="pd"></span>Active</span></div><div class="rc-sg"><div class="rc-s"><div class="rc-s-l">Stops</div><div class="rc-s-v">8</div></div><div class="rc-s"><div class="rc-s-l">Distance</div><div class="rc-s-v">22 km</div></div><div class="rc-s"><div class="rc-s-l">Students</div><div class="rc-s-v">187</div></div><div class="rc-s"><div class="rc-s-l">Duration</div><div class="rc-s-v">~42m</div></div></div><div class="rc-stops-label">Key Stops</div><div><div class="rc-stop"><div class="rc-stop-dot" style="background:var(--green)"></div>Sambra Circle (Start)</div><div class="rc-stop"><div class="rc-stop-dot" style="background:var(--t3)"></div>Airport Road</div><div class="rc-stop"><div class="rc-stop-dot" style="background:var(--t3)"></div>Shahapur</div><div class="rc-stop"><div class="rc-stop-dot" style="background:var(--green)"></div>JCER (End)</div></div><div class="rc-acts"><button class="rc-btn" onclick="er('Sambra')"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M227.31,73.37,182.63,28.68a16,16,0,0,0-22.63,0L36.69,152A15.86,15.86,0,0,0,32,163.31V208a16,16,0,0,0,16,16H92.69A15.86,15.86,0,0,0,104,219.31L227.31,96a16,16,0,0,0,0-22.63ZM92.69,208H48V163.31l88-88L180.69,120ZM192,108.68,147.31,64l24-24L216,84.68Z"/></svg> Edit</button><button class="rc-btn p" onclick="vrm('Sambra')"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M228.92,49.69a8,8,0,0,0-6.86-1.45L160.93,63.52,99.58,32.84a8,8,0,0,0-6.46-.3L26.34,58.42A8,8,0,0,0,21,66V208a8,8,0,0,0,10.92,7.43l61.13-24.39,61.35,30.68A8.15,8.15,0,0,0,158,222a8,8,0,0,0,2.93-.55l66.8-25.88A8,8,0,0,0,235,188V56A8,8,0,0,0,228.92,49.69ZM96,55.75l64,32V200.25l-64-32ZM37,75.14l43-16.64V193.36L37,208.36ZM219,180.86l-43,16.64V62.64l43-16.64Z"/></svg> Map</button><button class="rc-btn d" onclick="showToast('Route paused','error')"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M116,128V48a12,12,0,0,1,24,0v80a12,12,0,0,1-24,0Zm58.69-82.93a12,12,0,1,0-13.38,19.86C184.28,76.63,196,101.06,196,128a68,68,0,0,1-136,0c0-26.94,11.72-51.37,34.69-63.07A12,12,0,1,0,81.31,45.07,92,92,0,1,0,220,128C220,101.06,208.28,76.63,174.69,45.07Z"/></svg> Stop</button></div></div>
+        <div class="rc" data-c="amber"><div class="rc-hd"><div><div class="rc-name">Mahantesh Nagar</div><div class="rc-id">CB-103 · Manoj Singh</div></div><span class="pill am"><span class="pd"></span>Delayed</span></div><div class="rc-sg"><div class="rc-s"><div class="rc-s-l">Stops</div><div class="rc-s-v">10</div></div><div class="rc-s"><div class="rc-s-l">Distance</div><div class="rc-s-v">14 km</div></div><div class="rc-s"><div class="rc-s-l">Students</div><div class="rc-s-v">220</div></div><div class="rc-s"><div class="rc-s-l">Delay</div><div class="rc-s-v" style="color:var(--amber)">+35m</div></div></div><div class="rc-stops-label">Key Stops</div><div><div class="rc-stop"><div class="rc-stop-dot" style="background:var(--amber)"></div>Mahantesh Nagar (Start)</div><div class="rc-stop"><div class="rc-stop-dot" style="background:var(--t3)"></div>MN Circle</div><div class="rc-stop"><div class="rc-stop-dot" style="background:var(--t3)"></div>Tilakwadi</div><div class="rc-stop"><div class="rc-stop-dot" style="background:var(--green)"></div>JCER (End)</div></div><div class="rc-acts"><button class="rc-btn" onclick="er('Mahantesh')"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M227.31,73.37,182.63,28.68a16,16,0,0,0-22.63,0L36.69,152A15.86,15.86,0,0,0,32,163.31V208a16,16,0,0,0,16,16H92.69A15.86,15.86,0,0,0,104,219.31L227.31,96a16,16,0,0,0,0-22.63ZM92.69,208H48V163.31l88-88L180.69,120ZM192,108.68,147.31,64l24-24L216,84.68Z"/></svg> Edit</button><button class="rc-btn p" onclick="vrm('Mahantesh')"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M228.92,49.69a8,8,0,0,0-6.86-1.45L160.93,63.52,99.58,32.84a8,8,0,0,0-6.46-.3L26.34,58.42A8,8,0,0,0,21,66V208a8,8,0,0,0,10.92,7.43l61.13-24.39,61.35,30.68A8.15,8.15,0,0,0,158,222a8,8,0,0,0,2.93-.55l66.8-25.88A8,8,0,0,0,235,188V56A8,8,0,0,0,228.92,49.69ZM96,55.75l64,32V200.25l-64-32ZM37,75.14l43-16.64V193.36L37,208.36ZM219,180.86l-43,16.64V62.64l43-16.64Z"/></svg> Map</button><button class="rc-btn d" onclick="showToast('Route paused','error')"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M116,128V48a12,12,0,0,1,24,0v80a12,12,0,0,1-24,0Zm58.69-82.93a12,12,0,1,0-13.38,19.86C184.28,76.63,196,101.06,196,128a68,68,0,0,1-136,0c0-26.94,11.72-51.37,34.69-63.07A12,12,0,1,0,81.31,45.07,92,92,0,1,0,220,128C220,101.06,208.28,76.63,174.69,45.07Z"/></svg> Stop</button></div></div>
+        <div class="rc" data-c="purple"><div class="rc-hd"><div><div class="rc-name">Vadagaon Route</div><div class="rc-id">CB-104 · Akshay Desai</div></div><span class="pill gr"><span class="pd"></span>Active</span></div><div class="rc-sg"><div class="rc-s"><div class="rc-s-l">Stops</div><div class="rc-s-v">10</div></div><div class="rc-s"><div class="rc-s-l">Distance</div><div class="rc-s-v">16 km</div></div><div class="rc-s"><div class="rc-s-l">Students</div><div class="rc-s-v">195</div></div><div class="rc-s"><div class="rc-s-l">Duration</div><div class="rc-s-v">~32m</div></div></div><div class="rc-stops-label">Key Stops</div><div><div class="rc-stop"><div class="rc-stop-dot" style="background:var(--purple)"></div>Vadagaon Main (Start)</div><div class="rc-stop"><div class="rc-stop-dot" style="background:var(--t3)"></div>Vadagaon Junction</div><div class="rc-stop"><div class="rc-stop-dot" style="background:var(--t3)"></div>Camp Area</div><div class="rc-stop"><div class="rc-stop-dot" style="background:var(--green)"></div>JCER (End)</div></div><div class="rc-acts"><button class="rc-btn" onclick="er('Vadagaon')"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M227.31,73.37,182.63,28.68a16,16,0,0,0-22.63,0L36.69,152A15.86,15.86,0,0,0,32,163.31V208a16,16,0,0,0,16,16H92.69A15.86,15.86,0,0,0,104,219.31L227.31,96a16,16,0,0,0,0-22.63ZM92.69,208H48V163.31l88-88L180.69,120ZM192,108.68,147.31,64l24-24L216,84.68Z"/></svg> Edit</button><button class="rc-btn p" onclick="vrm('Vadagaon')"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M228.92,49.69a8,8,0,0,0-6.86-1.45L160.93,63.52,99.58,32.84a8,8,0,0,0-6.46-.3L26.34,58.42A8,8,0,0,0,21,66V208a8,8,0,0,0,10.92,7.43l61.13-24.39,61.35,30.68A8.15,8.15,0,0,0,158,222a8,8,0,0,0,2.93-.55l66.8-25.88A8,8,0,0,0,235,188V56A8,8,0,0,0,228.92,49.69ZM96,55.75l64,32V200.25l-64-32ZM37,75.14l43-16.64V193.36L37,208.36ZM219,180.86l-43,16.64V62.64l43-16.64Z"/></svg> Map</button><button class="rc-btn d" onclick="showToast('Route paused','error')"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M116,128V48a12,12,0,0,1,24,0v80a12,12,0,0,1-24,0Zm58.69-82.93a12,12,0,1,0-13.38,19.86C184.28,76.63,196,101.06,196,128a68,68,0,0,1-136,0c0-26.94,11.72-51.37,34.69-63.07A12,12,0,1,0,81.31,45.07,92,92,0,1,0,220,128C220,101.06,208.28,76.63,174.69,45.07Z"/></svg> Stop</button></div></div>
+        <div class="rc" data-c="cyan"><div class="rc-hd"><div><div class="rc-name">Hanuman Nagar</div><div class="rc-id">CB-105 · Rahul Naik</div></div><span class="pill gr"><span class="pd"></span>Active</span></div><div class="rc-sg"><div class="rc-s"><div class="rc-s-l">Stops</div><div class="rc-s-v">15</div></div><div class="rc-s"><div class="rc-s-l">Distance</div><div class="rc-s-v">26 km</div></div><div class="rc-s"><div class="rc-s-l">Students</div><div class="rc-s-v">390</div></div><div class="rc-s"><div class="rc-s-l">Duration</div><div class="rc-s-v">~50m</div></div></div><div class="rc-stops-label">Key Stops</div><div><div class="rc-stop"><div class="rc-stop-dot" style="background:var(--cyan)"></div>Hanuman Nagar (Start)</div><div class="rc-stop"><div class="rc-stop-dot" style="background:var(--t3)"></div>Hanuman Circle</div><div class="rc-stop"><div class="rc-stop-dot" style="background:var(--t3)"></div>Konnur Road</div><div class="rc-stop"><div class="rc-stop-dot" style="background:var(--green)"></div>JCER (End)</div></div><div class="rc-acts"><button class="rc-btn" onclick="er('Hanuman')"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M227.31,73.37,182.63,28.68a16,16,0,0,0-22.63,0L36.69,152A15.86,15.86,0,0,0,32,163.31V208a16,16,0,0,0,16,16H92.69A15.86,15.86,0,0,0,104,219.31L227.31,96a16,16,0,0,0,0-22.63ZM92.69,208H48V163.31l88-88L180.69,120ZM192,108.68,147.31,64l24-24L216,84.68Z"/></svg> Edit</button><button class="rc-btn p" onclick="vrm('Hanuman')"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M228.92,49.69a8,8,0,0,0-6.86-1.45L160.93,63.52,99.58,32.84a8,8,0,0,0-6.46-.3L26.34,58.42A8,8,0,0,0,21,66V208a8,8,0,0,0,10.92,7.43l61.13-24.39,61.35,30.68A8.15,8.15,0,0,0,158,222a8,8,0,0,0,2.93-.55l66.8-25.88A8,8,0,0,0,235,188V56A8,8,0,0,0,228.92,49.69ZM96,55.75l64,32V200.25l-64-32ZM37,75.14l43-16.64V193.36L37,208.36ZM219,180.86l-43,16.64V62.64l43-16.64Z"/></svg> Map</button><button class="rc-btn d" onclick="showToast('Route paused','error')"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M116,128V48a12,12,0,0,1,24,0v80a12,12,0,0,1-24,0Zm58.69-82.93a12,12,0,1,0-13.38,19.86C184.28,76.63,196,101.06,196,128a68,68,0,0,1-136,0c0-26.94,11.72-51.37,34.69-63.07A12,12,0,1,0,81.31,45.07,92,92,0,1,0,220,128C220,101.06,208.28,76.63,174.69,45.07Z"/></svg> Stop</button></div></div>
+      </div>
+    </div>
+
+    <!-- STUDENTS -->
+    <div class="view" id="view-students">
+      <div class="sh"><div class="sh-l"><h2>Student Management</h2><span>1,240 students enrolled</span></div><button class="btn bp" onclick="om('studentModal')"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M224,128a8,8,0,0,1-8,8H136v80a8,8,0,0,1-16,0V136H40a8,8,0,0,1,0-16h80V40a8,8,0,0,1,16,0v80h80A8,8,0,0,1,224,128Z"/></svg> Add Student</button></div>
+      <div class="tw">
+        <div class="tt">
+          <div class="sw2"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M229.66,218.34l-50.07-50.06a88.11,88.11,0,1,0-11.31,11.31l50.06,50.07a8,8,0,0,0,11.32-11.32ZM40,112a72,72,0,1,1,72,72A72.08,72.08,0,0,1,40,112Z"/></svg><input type="text" placeholder="Search student…" oninput="ft(this,'stuT')"></div>
+          <button class="chip active">All</button><button class="chip">Active</button><button class="chip">Inactive</button>
+          <button class="btn bg" style="margin-left:auto"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M224,152v56a16,16,0,0,1-16,16H48a16,16,0,0,1-16-16V152a8,8,0,0,1,16,0v56H208V152a8,8,0,0,1,16,0Zm-101.66,5.66a8,8,0,0,0,11.32,0l40-40a8,8,0,0,0-11.32-11.32L136,132.69V40a8,8,0,0,0-16,0v92.69L93.66,106.34a8,8,0,0,0-11.32,11.32Z"/></svg> Export CSV</button>
+        </div>
+        <table id="stuT">
+          <thead><tr><th>Student ID</th><th>Name</th><th>Email</th><th>Route</th><th>Pickup Stop</th><th>Semester</th><th>Status</th><th>Actions</th></tr></thead>
+          <tbody>
+            <tr><td class="mo">STU-2024-0001</td><td class="tb2">Vedant Shelar</td><td class="mu">vedshelar@jcer.edu</td><td>R.T.O</td><td>Mahantesh Nagar</td><td>4th</td><td><span class="pill gr"><span class="pd"></span>Active</span></td><td><div class="acts"><button class="act p" onclick="om('studentModal')" title="Edit"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M227.31,73.37,182.63,28.68a16,16,0,0,0-22.63,0L36.69,152A15.86,15.86,0,0,0,32,163.31V208a16,16,0,0,0,16,16H92.69A15.86,15.86,0,0,0,104,219.31L227.31,96a16,16,0,0,0,0-22.63ZM92.69,208H48V163.31l88-88L180.69,120ZM192,108.68,147.31,64l24-24L216,84.68Z"/></svg></button><button class="act d" onclick="dr(this,'Vedant')" title="Remove"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M216,48H176V40a24,24,0,0,0-24-24H104A24,24,0,0,0,80,40v8H40a8,8,0,0,0,0,16h8V208a16,16,0,0,0,16,16H192a16,16,0,0,0,16-16V64h8a8,8,0,0,0,0-16ZM96,40a8,8,0,0,1,8-8h48a8,8,0,0,1,8,8v8H96Zm96,168H64V64H192ZM112,104v64a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Zm48,0v64a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Z"/></svg></button></div></td></tr>
+            <tr><td class="mo">STU-2024-0002</td><td class="tb2">Priya Sharma</td><td class="mu">priya@jcer.edu</td><td>Sambra</td><td>Sambra Circle</td><td>2nd</td><td><span class="pill gr"><span class="pd"></span>Active</span></td><td><div class="acts"><button class="act p" onclick="om('studentModal')" title="Edit"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M227.31,73.37,182.63,28.68a16,16,0,0,0-22.63,0L36.69,152A15.86,15.86,0,0,0,32,163.31V208a16,16,0,0,0,16,16H92.69A15.86,15.86,0,0,0,104,219.31L227.31,96a16,16,0,0,0,0-22.63ZM92.69,208H48V163.31l88-88L180.69,120ZM192,108.68,147.31,64l24-24L216,84.68Z"/></svg></button><button class="act d" onclick="dr(this,'Priya')" title="Remove"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M216,48H176V40a24,24,0,0,0-24-24H104A24,24,0,0,0,80,40v8H40a8,8,0,0,0,0,16h8V208a16,16,0,0,0,16,16H192a16,16,0,0,0,16-16V64h8a8,8,0,0,0,0-16ZM96,40a8,8,0,0,1,8-8h48a8,8,0,0,1,8,8v8H96Zm96,168H64V64H192ZM112,104v64a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Zm48,0v64a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Z"/></svg></button></div></td></tr>
+            <tr><td class="mo">STU-2024-0003</td><td class="tb2">Arjun Patil</td><td class="mu">arjun@jcer.edu</td><td>Hanuman Nagar</td><td>Hanuman Circle</td><td>6th</td><td><span class="pill gr"><span class="pd"></span>Active</span></td><td><div class="acts"><button class="act p" onclick="om('studentModal')" title="Edit"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M227.31,73.37,182.63,28.68a16,16,0,0,0-22.63,0L36.69,152A15.86,15.86,0,0,0,32,163.31V208a16,16,0,0,0,16,16H92.69A15.86,15.86,0,0,0,104,219.31L227.31,96a16,16,0,0,0,0-22.63ZM92.69,208H48V163.31l88-88L180.69,120ZM192,108.68,147.31,64l24-24L216,84.68Z"/></svg></button><button class="act d" onclick="dr(this,'Arjun')" title="Remove"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M216,48H176V40a24,24,0,0,0-24-24H104A24,24,0,0,0,80,40v8H40a8,8,0,0,0,0,16h8V208a16,16,0,0,0,16,16H192a16,16,0,0,0,16-16V64h8a8,8,0,0,0,0-16ZM96,40a8,8,0,0,1,8-8h48a8,8,0,0,1,8,8v8H96Zm96,168H64V64H192ZM112,104v64a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Zm48,0v64a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Z"/></svg></button></div></td></tr>
+            <tr><td class="mo">STU-2024-0004</td><td class="tb2">Sneha Kulkarni</td><td class="mu">sneha@jcer.edu</td><td>Vadagaon</td><td>Vadagaon Main</td><td>3rd</td><td><span class="pill am"><span class="pd"></span>Inactive</span></td><td><div class="acts"><button class="act p" onclick="om('studentModal')" title="Edit"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M227.31,73.37,182.63,28.68a16,16,0,0,0-22.63,0L36.69,152A15.86,15.86,0,0,0,32,163.31V208a16,16,0,0,0,16,16H92.69A15.86,15.86,0,0,0,104,219.31L227.31,96a16,16,0,0,0,0-22.63ZM92.69,208H48V163.31l88-88L180.69,120ZM192,108.68,147.31,64l24-24L216,84.68Z"/></svg></button><button class="act d" onclick="dr(this,'Sneha')" title="Remove"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M216,48H176V40a24,24,0,0,0-24-24H104A24,24,0,0,0,80,40v8H40a8,8,0,0,0,0,16h8V208a16,16,0,0,0,16,16H192a16,16,0,0,0,16-16V64h8a8,8,0,0,0,0-16ZM96,40a8,8,0,0,1,8-8h48a8,8,0,0,1,8,8v8H96Zm96,168H64V64H192ZM112,104v64a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Zm48,0v64a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Z"/></svg></button></div></td></tr>
+            <tr><td class="mo">STU-2024-0005</td><td class="tb2">Karan Mehta</td><td class="mu">karan@jcer.edu</td><td>Mahantesh Nagar</td><td>MN Circle</td><td>1st</td><td><span class="pill gr"><span class="pd"></span>Active</span></td><td><div class="acts"><button class="act p" onclick="om('studentModal')" title="Edit"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M227.31,73.37,182.63,28.68a16,16,0,0,0-22.63,0L36.69,152A15.86,15.86,0,0,0,32,163.31V208a16,16,0,0,0,16,16H92.69A15.86,15.86,0,0,0,104,219.31L227.31,96a16,16,0,0,0,0-22.63ZM92.69,208H48V163.31l88-88L180.69,120ZM192,108.68,147.31,64l24-24L216,84.68Z"/></svg></button><button class="act d" onclick="dr(this,'Karan')" title="Remove"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M216,48H176V40a24,24,0,0,0-24-24H104A24,24,0,0,0,80,40v8H40a8,8,0,0,0,0,16h8V208a16,16,0,0,0,16,16H192a16,16,0,0,0,16-16V64h8a8,8,0,0,0,0-16ZM96,40a8,8,0,0,1,8-8h48a8,8,0,0,1,8,8v8H96Zm96,168H64V64H192ZM112,104v64a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Zm48,0v64a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Z"/></svg></button></div></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ALERTS -->
+    <div class="view" id="view-alerts">
+      <div class="sh"><div class="sh-l"><h2>System Alerts</h2><span>3 unresolved</span></div><button class="btn bg" onclick="showToast('All alerts cleared','info')"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Zm-57,0a8,8,0,0,0-11.32,11.32L184,112l-47.66,47.66a8,8,0,0,0,11.32,11.32l56-56A8,8,0,0,0,172.66,77.66Z"/></svg> Mark all read</button></div>
+      <div class="tw">
+        <table>
+          <thead><tr><th>Time</th><th>Bus / Source</th><th>Route</th><th>Description</th><th>Severity</th><th>Action</th></tr></thead>
+          <tbody>
+            <tr><td class="mo">08:42 AM</td><td>CB-103 / Manoj Singh</td><td>Mahantesh Nagar</td><td>Heavy traffic delay approx. 35 minutes</td><td><span class="pill re"><span class="pd"></span>Critical</span></td><td><div class="acts"><button class="act s" onclick="ra(this)" title="Resolve"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z"/></svg></button></div></td></tr>
+            <tr><td class="mo">08:30 AM</td><td>CB-107 / —</td><td>Sambra (Eve)</td><td>Engine warning — bus pulled off route</td><td><span class="pill re"><span class="pd"></span>Critical</span></td><td><div class="acts"><button class="act s" onclick="ra(this)" title="Resolve"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z"/></svg></button></div></td></tr>
+            <tr><td class="mo">08:15 AM</td><td>CB-105 / Rahul Naik</td><td>Hanuman Nagar</td><td>Fuel level at 12% — needs refill</td><td><span class="pill am"><span class="pd"></span>Warning</span></td><td><div class="acts"><button class="act s" onclick="ra(this)" title="Resolve"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z"/></svg></button></div></td></tr>
+            <tr><td class="mo">07:58 AM</td><td>CB-101 / Ravi Patil</td><td>R.T.O</td><td>Departed 5 minutes late from RTO Circle</td><td><span class="pill am"><span class="pd"></span>Warning</span></td><td><div class="acts"><button class="act s" onclick="ra(this)" title="Resolve"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z"/></svg></button></div></td></tr>
+            <tr><td class="mo">07:15 AM</td><td>System</td><td>All</td><td>Morning schedule sync completed successfully</td><td><span class="pill bl"><span class="pd"></span>Info</span></td><td><div class="acts"><button class="act" onclick="dr(this,'log')" title="Archive"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M224,48H32A16,16,0,0,0,16,64V88a16,16,0,0,0,16,16v88a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V104a16,16,0,0,0,16-16V64A16,16,0,0,0,224,48ZM32,64H224V88H32ZM208,192H48V104H208Zm-64-56H112a8,8,0,0,0,0,16h32a8,8,0,0,0,0-16Z"/></svg></button></div></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- SETTINGS -->
+    <div class="view" id="view-settings">
+      <div class="sh"><div class="sh-l"><h2>System Settings</h2><span>Configure the BusTrack platform</span></div><button class="btn bp" onclick="showToast('All settings saved','success')"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M219.31,40,216,36.69A16,16,0,0,0,204.69,32H48A16,16,0,0,0,32,48V208a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V51.31A16,16,0,0,0,219.31,40ZM168,208H88V160h80Zm40,0H184V160a16,16,0,0,0-16-16H88a16,16,0,0,0-16,16v48H48V48H204.69L208,51.31ZM160,80a8,8,0,0,1-8,8H96a8,8,0,0,1,0-16h56A8,8,0,0,1,160,80Z"/></svg> Save All</button></div>
+      <div class="set-g">
+        <div class="set-c"><div class="set-t"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M240,208H224V96a16,16,0,0,0-16-16H144V48a16,16,0,0,0-16-16H48A16,16,0,0,0,32,48V208H16a8,8,0,0,0,0,16H240a8,8,0,0,0,0-16ZM208,96V208H144V96ZM48,48h80V208H48ZM64,88a8,8,0,0,1,8-8H104a8,8,0,0,1,0,16H72A8,8,0,0,1,64,88Zm0,40a8,8,0,0,1,8-8H104a8,8,0,0,1,0,16H72A8,8,0,0,1,64,128Zm64,40H72a8,8,0,0,1,0-16h56a8,8,0,0,1,0,16Zm48-40a8,8,0,0,1,8-8h16a8,8,0,0,1,0,16H184A8,8,0,0,1,176,128Zm0,40a8,8,0,0,1,8-8h16a8,8,0,0,1,0,16H184A8,8,0,0,1,176,168Z"/></svg> Institution</div><div class="set-sub">General platform information</div>
+          <div class="fr"><label>Institution Name</label><input type="text" value="Jain College of Engineering and Research | JCER"></div>
+          <div class="fr"><label>Admin Email</label><input type="email" value="admin@jcer.edu"></div>
+          <div class="fr"><label>Support Phone</label><input type="tel" value="+91 836-2498100"></div>
+          <div class="fr"><label>Address</label><input type="text" value="Vidyanagar, Hubballi, Karnataka"></div>
+          <button class="btn bp" onclick="showToast('Saved','success')"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M219.31,40,216,36.69A16,16,0,0,0,204.69,32H48A16,16,0,0,0,32,48V208a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V51.31A16,16,0,0,0,219.31,40ZM168,208H88V160h80Zm40,0H184V160a16,16,0,0,0-16-16H88a16,16,0,0,0-16,16v48H48V48H204.69L208,51.31ZM160,80a8,8,0,0,1-8,8H96a8,8,0,0,1,0-16h56A8,8,0,0,1,160,80Z"/></svg> Save</button>
+        </div>
+        <div class="set-c"><div class="set-t"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M228.92,49.69a8,8,0,0,0-6.86-1.45L160.93,63.52,99.58,32.84a8,8,0,0,0-6.46-.3L26.34,58.42A8,8,0,0,0,21,66V208a8,8,0,0,0,10.92,7.43l61.13-24.39,61.35,30.68A8.15,8.15,0,0,0,158,222a8,8,0,0,0,2.93-.55l66.8-25.88A8,8,0,0,0,235,188V56A8,8,0,0,0,228.92,49.69ZM96,55.75l64,32V200.25l-64-32ZM37,75.14l43-16.64V193.36L37,208.36ZM219,180.86l-43,16.64V62.64l43-16.64Z"/></svg> Tracking</div><div class="set-sub">GPS and live tracking configuration</div>
+          <div class="fr"><label>Location Update Interval (seconds)</label><input type="number" value="5"></div>
+          <div class="fr"><label>Speed Alert Threshold (km/h)</label><input type="number" value="60"></div>
+          <div class="fr"><label>Map Default Centre</label><input type="text" value="15.8550, 74.5100"></div>
+          <div class="fr"><label>Default Zoom Level</label><input type="number" value="13"></div>
+          <button class="btn bp" onclick="showToast('Saved','success')"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M219.31,40,216,36.69A16,16,0,0,0,204.69,32H48A16,16,0,0,0,32,48V208a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V51.31A16,16,0,0,0,219.31,40ZM168,208H88V160h80Zm40,0H184V160a16,16,0,0,0-16-16H88a16,16,0,0,0-16,16v48H48V48H204.69L208,51.31ZM160,80a8,8,0,0,1-8,8H96a8,8,0,0,1,0-16h56A8,8,0,0,1,160,80Z"/></svg> Save</button>
+        </div>
+        <div class="set-c"><div class="set-t"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M221.8,175.94C216.25,166.38,208,139.33,208,104a80,80,0,1,0-160,0c0,35.34-8.26,62.38-13.81,71.94A16,16,0,0,0,48,200H88.81a40,40,0,0,0,78.38,0H208a16,16,0,0,0,13.8-24.06ZM128,216a24,24,0,0,1-22.62-16h45.24A24,24,0,0,1,128,216ZM48,184c7.7-13.24,16-43.92,16-80a64,64,0,1,1,128,0c0,36.05,8.28,66.73,16,80Z"/></svg> Notifications</div><div class="set-sub">Alert preferences</div>
+          <div class="tog-row"><div><div class="tog-lbl">Delay Alerts</div><div class="tog-sub">Trigger when bus is 5+ min late</div></div><label class="tog"><input type="checkbox" checked><span class="tog-sl"></span></label></div>
+          <div class="tog-row"><div><div class="tog-lbl">Low Fuel Alerts</div><div class="tog-sub">Below 15% triggers alert</div></div><label class="tog"><input type="checkbox" checked><span class="tog-sl"></span></label></div>
+          <div class="tog-row"><div><div class="tog-lbl">GPS Loss Alert</div><div class="tog-sub">Driver stops broadcasting</div></div><label class="tog"><input type="checkbox" checked><span class="tog-sl"></span></label></div>
+          <div class="tog-row"><div><div class="tog-lbl">Daily Email Digest</div><div class="tog-sub">Summary email each morning</div></div><label class="tog"><input type="checkbox"><span class="tog-sl"></span></label></div>
+        </div>
+        <div class="set-c"><div class="set-t"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M208,40H48A16,16,0,0,0,32,56V136c0,88,88,112,88,112s88-24,88-112V56A16,16,0,0,0,208,40Zm0,96c0,72.34-68.55,95.68-80,99.38C116.55,231.68,48,208.34,48,136V56H208ZM82.34,141.66a8,8,0,0,1,11.32-11.32L112,148.69l50.34-50.35a8,8,0,0,1,11.32,11.32l-56,56a8,8,0,0,1-11.32,0Z"/></svg> Security</div><div class="set-sub">Access and authentication</div>
+          <div class="tog-row"><div><div class="tog-lbl">Two-Factor Auth</div><div class="tog-sub">Require 2FA for admin</div></div><label class="tog"><input type="checkbox"><span class="tog-sl"></span></label></div>
+          <div class="tog-row"><div><div class="tog-lbl">Session Timeout</div><div class="tog-sub">Auto-logout after 30 min idle</div></div><label class="tog"><input type="checkbox" checked><span class="tog-sl"></span></label></div>
+          <div class="tog-row"><div><div class="tog-lbl">Audit Log</div><div class="tog-sub">Log all admin actions</div></div><label class="tog"><input type="checkbox" checked><span class="tog-sl"></span></label></div>
+          <div class="fr" style="margin-top:14px"><label>Change Admin Password</label><input type="password" placeholder="New password"></div>
+          <button class="btn bda" onclick="showToast('Password updated','success')"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M240,112a48.05,48.05,0,0,1-48,48,47.47,47.47,0,0,1-11.35-1.36l-25.6,25.59A8,8,0,0,1,149.37,187H136v13.38a8,8,0,0,1-2.34,5.66l-16,16A8,8,0,0,1,112,224H96a16,16,0,0,1-16-16V195.31l-9.38-9.38A47.47,47.47,0,0,1,64,160a48,48,0,0,1,17-36.37V88a8,8,0,0,1,2.34-5.66l32-32A8,8,0,0,1,121.37,48H136V34.63A8,8,0,0,1,149.37,29.37L192,72h30.63A8,8,0,0,1,229.37,78.63L240,89.26A8,8,0,0,1,240,100Zm-48-96a8,8,0,1,0-8,8A8,8,0,0,0,192,16Z"/></svg> Update Password</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- MODALS -->
+<div class="mo-ov" id="busModal" onclick="cb(event,'busModal')">
+  <div class="mo"><div class="mo-hd"><div style="display:flex;align-items:center"><div class="mo-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M184,24H72A32,32,0,0,0,40,56V208a16,16,0,0,0,16,16H56a16,16,0,0,0,16-16V192h112v16a16,16,0,0,0,16,16h0a16,16,0,0,0,16-16V56A32,32,0,0,0,184,24ZM56,168V120H200v48ZM200,104H56V56a16,16,0,0,1,16-16H184a16,16,0,0,1,16,16ZM88,84a12,12,0,1,1-12-12A12,12,0,0,1,88,84Zm92,0a12,12,0,1,1-12-12A12,12,0,0,1,180,84Zm-8,92a12,12,0,1,1-12-12A12,12,0,0,1,172,176Zm-80,0a12,12,0,1,1-12-12A12,12,0,0,1,92,176Z"/></svg></div><div class="mo-ttl">Add / Edit Bus</div></div><button class="mo-cl" onclick="cm('busModal')"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M205.66,194.34a8,8,0,0,1-11.32,11.32L128,139.31,61.66,205.66a8,8,0,0,1-11.32-11.32L116.69,128,50.34,61.66A8,8,0,0,1,61.66,50.34L128,116.69l66.34-66.35a8,8,0,0,1,11.32,11.32L139.31,128Z"/></svg></button></div>
+    <div class="fg"><div class="fr"><label>Bus Number</label><input type="text" placeholder="CB-108"></div><div class="fr"><label>Number Plate</label><input type="text" placeholder="KA-23-B-4528"></div><div class="fr"><label>Capacity</label><input type="number" placeholder="50"></div><div class="fr"><label>Year</label><input type="number" placeholder="2022"></div><div class="fr ff"><label>Assign Route</label><select><option value="">Select route…</option><option>R.T.O</option><option>Sambra</option><option>Mahantesh Nagar</option><option>Vadagaon</option><option>Hanuman Nagar</option></select></div><div class="fr ff"><label>Assign Driver</label><select><option value="">Select driver…</option><option>Ravi Patil</option><option>Suresh Kumar</option><option>Manoj Singh</option><option>Akshay Desai</option><option>Dinesh Rao</option></select></div></div>
+    <div class="mo-ft"><button class="btn bg" onclick="cm('busModal')">Cancel</button><button class="btn bp" onclick="sc('busModal')"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M219.31,40,216,36.69A16,16,0,0,0,204.69,32H48A16,16,0,0,0,32,48V208a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V51.31A16,16,0,0,0,219.31,40ZM168,208H88V160h80Zm40,0H184V160a16,16,0,0,0-16-16H88a16,16,0,0,0-16,16v48H48V48H204.69L208,51.31ZM160,80a8,8,0,0,1-8,8H96a8,8,0,0,1,0-16h56A8,8,0,0,1,160,80Z"/></svg> Save Bus</button></div>
+  </div>
+</div>
+
+<div class="mo-ov" id="driverModal" onclick="cb(event,'driverModal')">
+  <div class="mo"><div class="mo-hd"><div style="display:flex;align-items:center"><div class="mo-icon" style="background:var(--gbg);color:var(--green)"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm88,104a87.55,87.55,0,0,1-8.39,37.4L152,140.31V120a24,24,0,0,0-48,0v20.31L47.39,165.4A88,88,0,0,1,40,128a88.1,88.1,0,0,1,84-87.88V56a8,8,0,0,0,16,0V40.12A88.1,88.1,0,0,1,216,128Zm-88,16a8,8,0,0,1-8-8V120a8,8,0,0,1,16,0v16A8,8,0,0,1,128,144Zm-72.19,39.32L113,156.05A23.89,23.89,0,0,0,128,160a23.89,23.89,0,0,0,15-4l57.19,27.27A88,88,0,0,1,55.81,183.32Z"/></svg></div><div class="mo-ttl">Add / Edit Driver</div></div><button class="mo-cl" onclick="cm('driverModal')"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M205.66,194.34a8,8,0,0,1-11.32,11.32L128,139.31,61.66,205.66a8,8,0,0,1-11.32-11.32L116.69,128,50.34,61.66A8,8,0,0,1,61.66,50.34L128,116.69l66.34-66.35a8,8,0,0,1,11.32,11.32L139.31,128Z"/></svg></button></div>
+    <div class="fg"><div class="fr"><label>Full Name</label><input type="text" placeholder="Driver name"></div><div class="fr"><label>Phone</label><input type="tel" placeholder="+91 XXXXX-XXXXX"></div><div class="fr"><label>License Number</label><input type="text" placeholder="KA-DL-XXXX-XXX"></div><div class="fr"><label>License Expiry</label><input type="date"></div><div class="fr ff"><label>Email</label><input type="email" placeholder="driver@jcer.edu"></div><div class="fr ff"><label>Assign Bus</label><select><option value="">Select bus…</option><option>CB-101</option><option>CB-102</option><option>CB-107</option></select></div></div>
+    <div class="mo-ft"><button class="btn bg" onclick="cm('driverModal')">Cancel</button><button class="btn bp" onclick="sc('driverModal')"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M219.31,40,216,36.69A16,16,0,0,0,204.69,32H48A16,16,0,0,0,32,48V208a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V51.31A16,16,0,0,0,219.31,40ZM168,208H88V160h80Zm40,0H184V160a16,16,0,0,0-16-16H88a16,16,0,0,0-16,16v48H48V48H204.69L208,51.31ZM160,80a8,8,0,0,1-8,8H96a8,8,0,0,1,0-16h56A8,8,0,0,1,160,80Z"/></svg> Save Driver</button></div>
+  </div>
+</div>
+
+<div class="mo-ov" id="routeModal" onclick="cb(event,'routeModal')">
+  <div class="mo"><div class="mo-hd"><div style="display:flex;align-items:center"><div class="mo-icon" style="background:var(--ybg);color:var(--amber)"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M208,104a32,32,0,1,0-40,31v9a32,32,0,0,1-32,32H108.42a48.12,48.12,0,0,0-8.42-15.56V88a32,32,0,1,0-32,0v80a32,32,0,1,0,32.93.43A32.14,32.14,0,0,0,116,144h27.69A48.09,48.09,0,0,0,192,96V87A32.06,32.06,0,0,0,208,104ZM68,56A16,16,0,1,1,84,72,16,16,0,0,1,68,56Zm16,160a16,16,0,1,1,16-16A16,16,0,0,1,84,216Zm112-96a16,16,0,1,1,16-16A16,16,0,0,1,196,120Z"/></svg></div><div class="mo-ttl" id="rmTitle">Add New Route</div></div><button class="mo-cl" onclick="cm('routeModal')"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M205.66,194.34a8,8,0,0,1-11.32,11.32L128,139.31,61.66,205.66a8,8,0,0,1-11.32-11.32L116.69,128,50.34,61.66A8,8,0,0,1,61.66,50.34L128,116.69l66.34-66.35a8,8,0,0,1,11.32,11.32L139.31,128Z"/></svg></button></div>
+    <div class="fg">
+      <div class="fr"><label>Route Name</label><input type="text" id="rn" placeholder="e.g. Konnur"></div>
+      <div class="fr"><label>Number of Stops</label><input type="number" id="rs" placeholder="10"></div>
+      <div class="fr"><label>Distance (km)</label><input type="number" id="rd" placeholder="18"></div>
+      <div class="fr"><label>Duration (mins)</label><input type="number" id="rdu" placeholder="35"></div>
+      <div class="fr"><label>Departure Time</label><input type="time" id="rt" value="07:00"></div>
+      <div class="fr"><label>Assign Bus</label><select id="rb"><option value="">Select bus…</option><option>CB-101</option><option>CB-102</option><option>CB-104</option><option>CB-107</option></select></div>
+      <div class="fr ff"><label>Assign Driver</label><select id="rdr"><option value="">Select driver…</option><option>Ravi Patil</option><option>Suresh Kumar</option><option>Dinesh Rao</option></select></div>
+      <div class="fr ff"><label>Stop Names (comma separated)</label><textarea id="rsn" placeholder="Start Stop, Stop 2, …, JCER"></textarea></div>
+    </div>
+    <div class="mo-ft"><button class="btn bg" onclick="cm('routeModal')">Cancel</button><button class="btn bp" onclick="saveRoute()"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M219.31,40,216,36.69A16,16,0,0,0,204.69,32H48A16,16,0,0,0,32,48V208a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V51.31A16,16,0,0,0,219.31,40ZM168,208H88V160h80Zm40,0H184V160a16,16,0,0,0-16-16H88a16,16,0,0,0-16,16v48H48V48H204.69L208,51.31ZM160,80a8,8,0,0,1-8,8H96a8,8,0,0,1,0-16h56A8,8,0,0,1,160,80Z"/></svg> Save Route</button></div>
+  </div>
+</div>
+
+<div class="mo-ov" id="studentModal" onclick="cb(event,'studentModal')">
+  <div class="mo"><div class="mo-hd"><div style="display:flex;align-items:center"><div class="mo-icon" style="background:var(--pbg);color:var(--purple)"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M226.53,56.41l-96-32a8,8,0,0,0-5.06,0l-96,32A8,8,0,0,0,24,64v80a8,8,0,0,0,16,0V75.1L73.59,86.29A88.18,88.18,0,0,0,40,156c0,22,8.67,39.71,25.07,51.29A109.75,109.75,0,0,0,128,224a109.75,109.75,0,0,0,62.93-16.71C207.33,195.71,216,178,216,156a88.18,88.18,0,0,0-33.59-69.71l44.12-14.71a8,8,0,0,0,0-15.17ZM200,156c0,52-136,52-144,0a72,72,0,0,1,144,0Z"/></svg></div><div class="mo-ttl">Add / Edit Student</div></div><button class="mo-cl" onclick="cm('studentModal')"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M205.66,194.34a8,8,0,0,1-11.32,11.32L128,139.31,61.66,205.66a8,8,0,0,1-11.32-11.32L116.69,128,50.34,61.66A8,8,0,0,1,61.66,50.34L128,116.69l66.34-66.35a8,8,0,0,1,11.32,11.32L139.31,128Z"/></svg></button></div>
+    <div class="fg"><div class="fr"><label>Full Name</label><input type="text" placeholder="Student name"></div><div class="fr"><label>Student ID</label><input type="text" placeholder="STU-2024-XXXX"></div><div class="fr"><label>Email</label><input type="email" placeholder="student@jcer.edu"></div><div class="fr"><label>Phone</label><input type="tel" placeholder="+91 XXXXX-XXXXX"></div><div class="fr ff"><label>Assign Route</label><select><option value="">Select route…</option><option>R.T.O</option><option>Sambra</option><option>Mahantesh Nagar</option><option>Vadagaon</option><option>Hanuman Nagar</option></select></div><div class="fr"><label>Pickup Stop</label><input type="text" placeholder="e.g. MN Stop 3"></div><div class="fr"><label>Semester</label><select><option>1st</option><option>2nd</option><option>3rd</option><option>4th</option><option>5th</option><option>6th</option><option>7th</option><option>8th</option></select></div></div>
+    <div class="mo-ft"><button class="btn bg" onclick="cm('studentModal')">Cancel</button><button class="btn bp" onclick="sc('studentModal')"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M219.31,40,216,36.69A16,16,0,0,0,204.69,32H48A16,16,0,0,0,32,48V208a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V51.31A16,16,0,0,0,219.31,40ZM168,208H88V160h80Zm40,0H184V160a16,16,0,0,0-16-16H88a16,16,0,0,0-16,16v48H48V48H204.69L208,51.31ZM160,80a8,8,0,0,1-8,8H96a8,8,0,0,1,0-16h56A8,8,0,0,1,160,80Z"/></svg> Save Student</button></div>
+  </div>
+</div>
+
+<div id="toast"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M173.66,98.34a8,8,0,0,1,0,11.32l-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L112,148.69l50.34-50.35A8,8,0,0,1,173.66,98.34ZM232,128A104,104,0,1,1,128,24,104.11,104.11,0,0,1,232,128Zm-16,0a88,88,0,1,0-88,88A88.1,88.1,0,0,0,216,128Z"/></svg><span id="tm">Done</span></div>
+
+<script>
+if (sessionStorage.getItem("bt_role") !== "admin") {
+    window.location.href = "login.html";
+}
+
+/* ── Admin Socket.IO ── */
+const socket = io("http://localhost:5000");
+const btToken = localStorage.getItem("bt_token") || "";
+
+function apiFetch(path, opts = {}) {
+    return fetch("http://localhost:5000" + path, {
+        ...opts,
+        headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + btToken,
+            ...(opts.headers || {})
+        }
+    });
+}
+
+socket.on("connect", () => {
+    console.log("Admin socket connected:", socket.id);
+    loadAdminStats();
+});
+
+socket.on("busLocation", (data) => {
+    // Update live bus counts in sidebar
+    console.log("Bus location update:", data.busId, data.lat, data.lng);
+});
+
+socket.on("busStatusUpdate", (data) => {
+    console.log("Bus status:", data.busId, data.status);
+    loadAdminStats();
+});
+
+socket.on("newAlert", (alert) => {
+    console.log("New alert:", alert.title);
+    // Flash the alerts badge
+    const badge = document.querySelector('.nb');
+    if (badge) {
+        const cur = parseInt(badge.textContent || "0");
+        badge.textContent = cur + 1;
+    }
+});
+
+socket.on("maintenanceRequest", (req) => {
+    console.log("Maintenance request:", req.busId, req.issue);
+});
+
+/* ── Load admin stats from API ── */
+async function loadAdminStats() {
+    try {
+        const res = await apiFetch("/api/admin/stats");
+        if (!res.ok) return;
+        const data = await res.json();
+
+        // Update stat cards if they have data-stat attributes
+        const statMap = {
+            activeBuses:   ["activeBusCount", "activeCount"],
+            totalStudents: ["studentCount"],
+            totalRoutes:   ["routeCount"],
+            delayedBuses:  ["delayCount"],
+        };
+        Object.entries(statMap).forEach(([key, ids]) => {
+            ids.forEach(id => {
+                const el = document.getElementById(id);
+                if (el && data[key] !== undefined) el.textContent = data[key];
+            });
+        });
+    } catch(e) { console.warn("Stats load failed:", e.message); }
+}
+
+/* ── Send admin alert via API ── */
+async function sendAdminAlert(title, message, type, routeId) {
+    try {
+        const res = await apiFetch("/api/admin/alerts", {
+            method: "POST",
+            body: JSON.stringify({ title, message, type: type || "info", routeId: routeId || null })
+        });
+        const data = await res.json();
+        return data;
+    } catch(e) { console.warn("Alert send failed:", e.message); return null; }
+}
+
+/* ── Update bus status via API ── */
+async function updateBusStatus(busId, status) {
+    try {
+        const res = await apiFetch("/api/admin/buses/" + busId + "/status", {
+            method: "PUT",
+            body: JSON.stringify({ status })
+        });
+        return await res.json();
+    } catch(e) { console.warn("Bus status update failed:", e.message); return null; }
+}
+
+/* ── Admin logout ── */
+function adminLogout() {
+    if (typeof socket !== "undefined") socket.disconnect();
+    sessionStorage.clear();
+    localStorage.clear();
+    window.location.href = "login.html";
+}
+
+/* ── Populate admin name ── */
+const btName = localStorage.getItem("bt_name");
+if (btName) {
+    document.querySelectorAll(".admin-name, #adminName").forEach(el => el.textContent = btName);
+}
+
+// Time
+function ut(){const n=new Date();document.getElementById('dts').textContent=n.toLocaleDateString('en-IN',{weekday:'short',day:'numeric',month:'short'})+' · '+n.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'})}
+ut();setInterval(ut,30000);
+
+// View titles
+const VT={overview:'Dashboard Overview',live:'Live Bus Map',buses:'Bus Fleet',drivers:'Driver Management',routes:'Route Management',students:'Student Management',alerts:'System Alerts',settings:'System Settings'};
+let adminMap=null,mapReady=false;
+
+function sv(id,el){
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.querySelectorAll('.ni').forEach(n=>n.classList.remove('active'));
+  document.getElementById('view-'+id).classList.add('active');
+  if(el)el.classList.add('active');
+  document.getElementById('vt').textContent=VT[id]||id;
+  document.getElementById('vc').textContent='Admin › '+(VT[id]||id);
+  if(id==='live'&&!mapReady)initMap();
+}
+
+// ════════════════════════════════════════════════════════════════
+// ADMIN MAP — OSRM road-snapped routing + requestAnimationFrame
+// ════════════════════════════════════════════════════════════════
+
+const ADMIN_COLLEGE = [15.8765, 74.5198];
+
+const adminRouteDefs = [
+  { key:'rto',      color:'#6070ff', name:'R.T.O',    busId:'CB-101', duration:35,
+    stops:[[15.8497,74.4977],[15.8558,74.5008],[15.8635,74.5055],[15.8702,74.5140],ADMIN_COLLEGE] },
+  { key:'sambra',   color:'#00d68f', name:'Sambra',   busId:'CB-102', duration:42,
+    stops:[[15.8590,74.6189],[15.8620,74.5800],[15.8650,74.5500],[15.8710,74.5300],ADMIN_COLLEGE] },
+  { key:'mahantesh',color:'#ffb020', name:'Mahantesh',busId:'CB-103', duration:28,
+    stops:[[15.8672,74.5060],[15.8700,74.5100],[15.8730,74.5150],ADMIN_COLLEGE] },
+  { key:'vadagaon', color:'#a78bfa', name:'Vadagaon', busId:'CB-104', duration:32,
+    stops:[[15.8950,74.5250],[15.8870,74.5220],[15.8810,74.5205],ADMIN_COLLEGE] },
+  { key:'hanuman',  color:'#22d3ee', name:'Hanuman',  busId:'CB-105', duration:50,
+    stops:[[15.8720,74.4900],[15.8730,74.5000],[15.8745,74.5100],ADMIN_COLLEGE] }
+];
+
+const adminAS = {};
+adminRouteDefs.forEach(r => {
+  adminAS[r.key] = { coords:[], segIdx:0, segT:Math.random()*0.4,
+    lastTs:null, rafId:null, marker:null, covLine:null, baseLine:null };
+});
+
+function adminBearing(a,b){
+  const toRad=d=>d*Math.PI/180,toDeg=r=>r*180/Math.PI;
+  const dL=toRad(b[1]-a[1]),l1=toRad(a[0]),l2=toRad(b[0]);
+  const y=Math.sin(dL)*Math.cos(l2),x=Math.cos(l1)*Math.sin(l2)-Math.sin(l1)*Math.cos(l2)*Math.cos(dL);
+  return(toDeg(Math.atan2(y,x))+360)%360;
+}
+function adminLerp(coords,si,t){
+  const a=coords[si],b=coords[Math.min(si+1,coords.length-1)];
+  return[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t];
+}
+function adminBusIcon(color,bearing){
+  return L.divIcon({
+    className:'',
+    html:`<div style="width:30px;height:30px;display:flex;align-items:center;justify-content:center;filter:drop-shadow(0 3px 8px ${color}90);transform:rotate(${bearing||0}deg);transition:transform 0.5s ease;"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:30px;height:30px;fill:${color}"><path d="M184,24H72A32,32,0,0,0,40,56V208a16,16,0,0,0,16,16H56a16,16,0,0,0,16-16V192h112v16a16,16,0,0,0,16,16h0a16,16,0,0,0,16-16V56A32,32,0,0,0,184,24ZM56,168V120H200v48ZM200,104H56V56a16,16,0,0,1,16-16H184a16,16,0,0,1,16,16ZM88,84a12,12,0,1,1-12-12A12,12,0,0,1,88,84Zm92,0a12,12,0,1,1-12-12A12,12,0,0,1,180,84Zm-8,92a12,12,0,1,1-12-12A12,12,0,0,1,172,176Zm-80,0a12,12,0,1,1-12-12A12,12,0,0,1,92,176Z"/></svg></div>`,
+    iconSize:[30,30],iconAnchor:[15,15]
+  });
+}
+async function adminFetchOSRM(stops){
+  const coordStr=stops.map(s=>`${s[1]},${s[0]}`).join(';');
+  const url=`https://router.project-osrm.org/route/v1/driving/${coordStr}?overview=full&geometries=geojson&steps=false`;
+  const resp=await fetch(url,{signal:AbortSignal.timeout(7000)});
+  if(!resp.ok) throw new Error('HTTP '+resp.status);
+  const data=await resp.json();
+  if(!data.routes?.[0]) throw new Error('No route');
+  return data.routes[0].geometry.coordinates.map(c=>[c[1],c[0]]);
+}
+function adminDensify(stops,steps=60){
+  const out=[];
+  for(let i=0;i<stops.length-1;i++)
+    for(let t=0;t<steps;t++)
+      out.push([stops[i][0]+(stops[i+1][0]-stops[i][0])*(t/steps),
+                stops[i][1]+(stops[i+1][1]-stops[i][1])*(t/steps)]);
+  out.push(stops[stops.length-1]);
+  return out;
+}
+function adminRunAnim(key){
+  const st=adminAS[key],def=adminRouteDefs.find(r=>r.key===key);
+  function frame(ts){
+    if(st.lastTs===null) st.lastTs=ts;
+    const dt=Math.min(ts-st.lastTs,200);
+    st.lastTs=ts;
+    const speed=1/(def.duration*60*1000);
+    st.segT+=speed*dt*(st.coords.length-1);
+    while(st.segT>=1&&st.segIdx<st.coords.length-2){st.segT-=1;st.segIdx++;}
+    if(st.segIdx>=st.coords.length-1){st.segIdx=0;st.segT=0;}
+    st.segT=Math.min(st.segT,1);
+    const pos=adminLerp(st.coords,st.segIdx,st.segT);
+    const hdg=adminBearing(st.coords[st.segIdx],st.coords[Math.min(st.segIdx+1,st.coords.length-1)]);
+    st.marker?.setLatLng(pos);
+    st.marker?.setIcon(adminBusIcon(def.color,hdg));
+    const cov=st.coords.slice(0,st.segIdx+1).concat([pos]);
+    st.covLine?.setLatLngs(cov);
+    st.rafId=requestAnimationFrame(frame);
+  }
+  cancelAnimationFrame(st.rafId);
+  st.rafId=requestAnimationFrame(frame);
+}
+async function adminLoadRoute(def){
+  const st=adminAS[def.key],map=adminMap;
+  st.baseLine=L.polyline(def.stops,{color:'#1a2035',weight:4,opacity:0.7}).addTo(map);
+  st.marker=L.marker(def.stops[0],{icon:adminBusIcon(def.color,0)}).addTo(map);
+  st.marker.bindPopup('<b>'+def.name+'</b><br>Bus '+def.busId);
+  let coords;
+  try{ coords=await adminFetchOSRM(def.stops); }
+  catch(e){ console.warn('OSRM ['+def.key+']:',e.message); coords=adminDensify(def.stops); }
+  st.coords=coords;
+  map.removeLayer(st.baseLine);
+  st.baseLine=L.polyline(coords,{color:'#1a2035',weight:4,opacity:0.7}).addTo(map);
+  st.covLine=L.polyline([coords[0]],{color:def.color,weight:4,opacity:0.9}).addTo(map);
+  st.covLine.bringToFront();
+  st.segIdx=Math.min(Math.floor(st.segT*(coords.length-1)),coords.length-2);
+  st.segT=(st.segT*(coords.length-1))-st.segIdx;
+  adminRunAnim(def.key);
+}
+
+function initMap(){
+  adminMap=L.map('admin-map').setView([15.855,74.51],13);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    {maxZoom:19,attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'})
+   .addTo(adminMap);
+  L.marker(ADMIN_COLLEGE,{icon:L.divIcon({className:'',
+    html:'<div style="width:30px;height:30px;background:#6070ff;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;box-shadow:0 3px 12px rgba(96,112,255,.5);border:2px solid #04060e;font-weight:700;font-size:11px;font-family:sans-serif">JCER</div>',
+    iconSize:[30,30],iconAnchor:[15,15]})})
+   .addTo(adminMap).bindPopup('<b>JCER</b>').openPopup();
+  adminRouteDefs.forEach(def=>adminLoadRoute(def));
+  mapReady=true;
+  setTimeout(()=>adminMap&&adminMap.invalidateSize(),200);
+}
+
+// Route actions
+function er(name){document.getElementById('rmTitle').textContent='Edit Route — '+name;document.getElementById('rn').value=name;om('routeModal')}
+function vrm(name){sv('live',document.querySelector('[onclick*=live]'));setTimeout(()=>showToast(name+' route on map','info'),350)}
+function saveRoute(){
+  const name=document.getElementById('rn').value.trim();
+  if(!name){showToast('Route name required','error');return;}
+  const tr=document.createElement('tr');
+  const b=document.getElementById('rb').value||'—',s=document.getElementById('rs').value||'—',d=document.getElementById('rd').value||'—',du=document.getElementById('rdu').value||'—',t=document.getElementById('rt').value||'—';
+  tr.innerHTML=`<td class="tb2">${name}</td><td class="mo">${b}</td><td>${s}</td><td>${d} km</td><td>~${du} min</td><td>—</td><td class="mo">${t}</td><td><span class="pill gr"><span class="pd"></span>Active</span></td><td><div class="acts"><button class="act p" onclick="er('${name}')" title="Edit"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M227.31,73.37,182.63,28.68a16,16,0,0,0-22.63,0L36.69,152A15.86,15.86,0,0,0,32,163.31V208a16,16,0,0,0,16,16H92.69A15.86,15.86,0,0,0,104,219.31L227.31,96a16,16,0,0,0,0-22.63ZM92.69,208H48V163.31l88-88L180.69,120ZM192,108.68,147.31,64l24-24L216,84.68Z"/></svg></button><button class="act" onclick="vrm('${name}')" title="Map"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M228.92,49.69a8,8,0,0,0-6.86-1.45L160.93,63.52,99.58,32.84a8,8,0,0,0-6.46-.3L26.34,58.42A8,8,0,0,0,21,66V208a8,8,0,0,0,10.92,7.43l61.13-24.39,61.35,30.68A8.15,8.15,0,0,0,158,222a8,8,0,0,0,2.93-.55l66.8-25.88A8,8,0,0,0,235,188V56A8,8,0,0,0,228.92,49.69ZM96,55.75l64,32V200.25l-64-32ZM37,75.14l43-16.64V193.36L37,208.36ZM219,180.86l-43,16.64V62.64l43-16.64Z"/></svg></button><button class="act d" onclick="dr(this,'${name}')" title="Remove"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M116,128V48a12,12,0,0,1,24,0v80a12,12,0,0,1-24,0Zm58.69-82.93a12,12,0,1,0-13.38,19.86C184.28,76.63,196,101.06,196,128a68,68,0,0,1-136,0c0-26.94,11.72-51.37,34.69-63.07A12,12,0,1,0,81.31,45.07,92,92,0,1,0,220,128C220,101.06,208.28,76.63,174.69,45.07Z"/></svg></button></div></td>`;
+  document.getElementById('rtBody').appendChild(tr);
+  cm('routeModal');showToast('Route "'+name+'" saved','success');
+  ['rn','rs','rd','rdu','rsn'].forEach(id=>document.getElementById(id).value='');
+}
+
+// Table filter
+function ft(el,id){const q=el.value.toLowerCase();document.querySelectorAll('#'+id+' tbody tr').forEach(r=>{r.style.display=r.textContent.toLowerCase().includes(q)?'':'none'})}
+
+// Delete row
+function dr(btn,lbl){if(confirm('Remove "'+lbl+'"?')){const tr=btn.closest('tr');tr.style.transition='opacity .25s';tr.style.opacity='0';setTimeout(()=>tr.remove(),250);showToast('"'+lbl+'" removed','info')}}
+
+// Resolve alert
+function ra(btn){const b=document.getElementById('alertBadge');let c=parseInt(b.textContent)||0;c--;b.textContent=c;if(c<=0)b.style.display='none';dr(btn,'alert')}
+
+// Modals
+function om(id){document.getElementById(id).classList.add('open')}
+function cm(id){document.getElementById(id).classList.remove('open')}
+function cb(e,id){if(e.target===document.getElementById(id))cm(id)}
+function sc(id){cm(id);showToast('Saved successfully','success')}
+
+// Toast
+const toastEl=document.getElementById('toast');
+let tt;
+function showToast(msg,type='success'){
+  document.getElementById('tm').textContent=msg;
+  toastEl.className='show '+type;
+  const ic={
+    success:'<path d="M173.66,98.34a8,8,0,0,1,0,11.32l-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L112,148.69l50.34-50.35A8,8,0,0,1,173.66,98.34ZM232,128A104,104,0,1,1,128,24,104.11,104.11,0,0,1,232,128Zm-16,0a88,88,0,1,0-88,88A88.1,88.1,0,0,0,216,128Z"/>',
+    error:'<path d="M205.66,194.34a8,8,0,0,1-11.32,11.32L128,139.31,61.66,205.66a8,8,0,0,1-11.32-11.32L116.69,128,50.34,61.66A8,8,0,0,1,61.66,50.34L128,116.69l66.34-66.35a8,8,0,0,1,11.32,11.32L139.31,128ZM232,128A104,104,0,1,1,128,24,104.11,104.11,0,0,1,232,128Zm-16,0a88,88,0,1,0-88,88A88.1,88.1,0,0,0,216,128Z"/>',
+    info:'<path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm0,192a88,88,0,1,1,88-88A88.1,88.1,0,0,1,128,216Zm16-40a8,8,0,0,1-8,8,16,16,0,0,1-16-16V128a8,8,0,0,1,0-16,16,16,0,0,1,16,16v40A8,8,0,0,1,144,176ZM112,84a12,12,0,1,1,12,12A12,12,0,0,1,112,84Z"/>'
+  };
+  const tiEl=document.getElementById('ti');
+  if(tiEl) tiEl.innerHTML=ic[type]||ic.success;
+  clearTimeout(tt);tt=setTimeout(()=>toastEl.className='',3000);
+}
+
+// Chip filters
+document.querySelectorAll('.tt .chip').forEach(c=>{c.addEventListener('click',function(){this.closest('.tt').querySelectorAll('.chip').forEach(x=>x.classList.remove('active'));this.classList.add('active')})});
+
+// Escape
+document.addEventListener('keydown',e=>{if(e.key==='Escape')document.querySelectorAll('.mo-ov.open').forEach(m=>m.classList.remove('open'))});
+
+// Logout
+function logout(){
+    sessionStorage.clear();
+    localStorage.clear();
+    window.location.href='login.html';
+}
+</script>
+</body>
+</html>

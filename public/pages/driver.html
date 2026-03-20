@@ -1,0 +1,1359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BusTrack — Driver Dashboard</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>    
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg:       #0D0F14;
+            --sidebar:  #0D0F14;
+            --surface:  #13161E;
+            --card:     #13161E;
+            --border:   #222635;
+            --border2:  #2e3347;
+            --text:     #F0F2F8;
+            --muted:    #6B7280;
+            --accent:   #4F6FFF;
+            --accent2:  #7C3AED;
+            --green:    #22C55E;
+            --green2:   #16A34A;
+            --blue:     #3B82F6;
+            --orange:   #F59E0B;
+            --red:      #EF4444;
+            --sidebar-w: 256px;
+        }
+        *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+        body {
+            font-family: 'DM Sans', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Subtle grid overlay */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background-image:
+                linear-gradient(rgba(79,111,255,0.025) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(79,111,255,0.025) 1px, transparent 1px);
+            background-size: 48px 48px;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 4px; }
+
+        /* ── Sidebar ── */
+        .sidebar {
+            width: var(--sidebar-w);
+            background: var(--sidebar);
+            display: flex;
+            flex-direction: column;
+            padding: 22px 14px;
+            flex-shrink: 0;
+            overflow: hidden;
+            border-right: 1px solid var(--border);
+            position: relative;
+            z-index: 10;
+        }
+        .sidebar::before {
+            content: '';
+            position: absolute;
+            top: -80px; left: -60px;
+            width: 240px; height: 200px;
+            background: radial-gradient(ellipse, rgba(79,111,255,0.1) 0%, transparent 70%);
+            pointer-events: none;
+        }
+
+        .logo-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 0 6px;
+            margin-bottom: 28px;
+        }
+        .logo-icon {
+            width: 36px; height: 36px;
+            background: linear-gradient(135deg, var(--accent), var(--accent2));
+            border-radius: 9px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 19px; color: #fff;
+            box-shadow: 0 0 14px rgba(79,111,255,0.3);
+            flex-shrink: 0;
+        }
+        .logo-text h2 { font-size: 16px; font-weight: 700; color: var(--text); }
+        .logo-text span { font-size: 10px; color: var(--accent); letter-spacing: 0.5px; }
+
+        .nav-section {
+            font-size: 9.5px;
+            font-weight: 700;
+            letter-spacing: 1.2px;
+            text-transform: uppercase;
+            color: var(--border2);
+            padding: 0 8px;
+            margin: 18px 0 6px;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 11px;
+            padding: 10px 12px;
+            border-radius: 9px;
+            color: var(--muted);
+            font-size: 13.5px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.18s;
+            text-decoration: none;
+            margin-bottom: 2px;
+            border: 1px solid transparent;
+        }
+        .nav-item i { font-size: 18px; flex-shrink: 0; }
+        .nav-item:hover { background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.85); }
+        .nav-item.active {
+            background: rgba(79,111,255,0.12);
+            color: var(--accent);
+            border-color: rgba(79,111,255,0.2);
+        }
+        .nav-item.active i { color: var(--accent); }
+
+        .sidebar-footer {
+            margin-top: auto;
+            padding-top: 14px;
+            border-top: 1px solid var(--border);
+        }
+        .driver-card {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 11px;
+            border-radius: 10px;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid var(--border);
+            cursor: pointer;
+        }
+        .driver-avatar {
+            width: 34px; height: 34px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--accent), var(--accent2));
+            display: flex; align-items: center; justify-content: center;
+            font-size: 16px; color: #fff; flex-shrink: 0;
+        }
+        .driver-info h4 { font-size: 12.5px; font-weight: 600; color: var(--text); }
+        .driver-info p  { font-size: 10.5px; color: var(--muted); }
+        .logout-icon { margin-left: auto; color: var(--muted); font-size: 17px; cursor: pointer; transition: color 0.2s; }
+        .logout-icon:hover { color: var(--red); }
+
+        /* ── Main ── */
+        .main { flex-grow: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; position: relative; z-index: 1; }
+
+        /* ── Topbar ── */
+        .topbar {
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            padding: 14px 24px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            flex-shrink: 0;
+        }
+        .topbar h1 { font-size: 17px; font-weight: 700; letter-spacing: -0.3px; }
+        .topbar-sub { font-size: 12px; color: var(--muted); }
+        .topbar-right { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+
+        .status-badge {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 12.5px;
+            font-weight: 600;
+            border: 1px solid transparent;
+        }
+        .status-badge.online  { background: rgba(34,197,94,0.1); color: #22C55E; border-color: rgba(34,197,94,0.2); }
+        .status-badge.offline { background: rgba(107,114,128,0.1); color: var(--muted); border-color: var(--border); }
+        .status-dot { width: 7px; height: 7px; border-radius: 50%; animation: blink 1.8s infinite; }
+        .status-badge.online .status-dot  { background: #22C55E; }
+        .status-badge.offline .status-dot { background: var(--muted); animation: none; }
+        @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+        /* ── Content ── */
+        .content { flex-grow: 1; display: flex; overflow: hidden; min-height: 0; }
+
+        /* ── View panels ── */
+        .view-panel {
+            display: none;
+            flex-grow: 1;
+            overflow: hidden;
+        }
+        .view-panel.active { display: flex; }
+
+        /* ── Live Map panel ── */
+        .live-panel {
+            flex-direction: row;
+        }
+
+        /* ── Left panel (shared) ── */
+        .left-panel {
+            width: 320px;
+            flex-shrink: 0;
+            overflow-y: auto;
+            padding: 18px;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            background: var(--bg);
+            border-right: 1px solid var(--border);
+        }
+
+        /* Cards */
+        .card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 16px;
+        }
+        .card-title {
+            font-size: 10.5px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: var(--muted);
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 7px;
+        }
+        .card-title i { font-size: 14px; color: var(--accent); }
+
+        /* Location sharing toggle */
+        .location-card { border: 1.5px solid var(--border); transition: border-color 0.3s; }
+        .location-card.sharing { border-color: var(--green); background: rgba(34,197,94,0.03); }
+
+        .share-btn {
+            width: 100%;
+            padding: 13px;
+            border: none;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 700;
+            font-family: 'DM Sans', sans-serif;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 9px;
+            transition: all 0.2s;
+        }
+        .share-btn.start { background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #fff; box-shadow: 0 4px 16px rgba(79,111,255,0.3); }
+        .share-btn.start:hover { opacity: 0.9; transform: translateY(-1px); }
+        .share-btn.stop  { background: rgba(239,68,68,0.1); color: var(--red); border: 1.5px solid rgba(239,68,68,0.25); }
+        .share-btn.stop:hover { background: rgba(239,68,68,0.16); }
+
+        .location-info {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-top: 12px;
+        }
+        .loc-stat {
+            background: var(--bg);
+            border-radius: 8px;
+            padding: 9px 11px;
+            border: 1px solid var(--border);
+        }
+        .loc-stat-label { font-size: 10px; color: var(--muted); font-weight: 600; margin-bottom: 2px; text-transform: uppercase; letter-spacing: 0.4px; }
+        .loc-stat-val   { font-size: 14px; font-weight: 700; color: var(--text); }
+        .loc-stat-val.green { color: var(--green); }
+
+        /* Trip info */
+        .trip-row { display: flex; align-items: center; gap: 11px; padding: 9px 0; border-bottom: 1px solid var(--border); }
+        .trip-row:last-child { border-bottom: none; padding-bottom: 0; }
+        .trip-row i { font-size: 18px; color: var(--muted); width: 22px; text-align: center; flex-shrink: 0; }
+        .trip-row-body { flex-grow: 1; }
+        .trip-row-label { font-size: 10px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px; }
+        .trip-row-val   { font-size: 13.5px; font-weight: 600; color: var(--text); margin-top: 1px; }
+
+        /* Stop list */
+        .stop-list { display: flex; flex-direction: column; }
+        .stop-item {
+            display: flex;
+            align-items: center;
+            gap: 11px;
+            padding: 9px 0;
+            position: relative;
+        }
+        .stop-item:not(:last-child)::after {
+            content: '';
+            position: absolute;
+            left: 10px;
+            top: 30px;
+            width: 2px;
+            height: calc(100% - 18px);
+            background: var(--border);
+        }
+        .stop-dot {
+            width: 22px; height: 22px; min-width: 22px;
+            border-radius: 50%;
+            border: 2px solid var(--border);
+            background: var(--card);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 9px; font-weight: 700; color: var(--muted);
+            z-index: 1;
+        }
+        .stop-dot.done    { background: var(--accent); border-color: var(--accent); color: #fff; }
+        .stop-dot.current { background: var(--blue); border-color: var(--blue); color: #fff; animation: blink 1.5s infinite; }
+        .stop-name { font-size: 13px; font-weight: 500; flex-grow: 1; }
+        .stop-time { margin-left: auto; font-size: 11px; color: var(--muted); }
+
+        /* Alerts */
+        .alert-item {
+            display: flex; align-items: flex-start; gap: 10px;
+            padding: 10px 12px;
+            border-radius: 9px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            margin-bottom: 8px;
+        }
+        .alert-item:last-child { margin-bottom: 0; }
+        .alert-item i { font-size: 17px; margin-top: 1px; flex-shrink: 0; }
+        .alert-item.warn i { color: var(--orange); }
+        .alert-item.info i { color: var(--blue); }
+        .alert-item h4 { font-size: 12.5px; font-weight: 600; color: var(--text); }
+        .alert-item p  { font-size: 11.5px; color: var(--muted); margin-top: 1px; }
+
+        /* ── Map ── */
+        .map-wrap { flex-grow: 1; position: relative; overflow: hidden; }
+        #driver-map { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; }
+        .leaflet-container { z-index: 0 !important; }
+
+        .map-overlay {
+            position: absolute;
+            top: 14px; right: 14px;
+            z-index: 500;
+            background: rgba(13,15,20,0.92);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--border2);
+            border-radius: 12px;
+            padding: 13px 15px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+            min-width: 170px;
+        }
+        .map-overlay-title { font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.9px; color: var(--muted); margin-bottom: 9px; }
+        .map-stat { display: flex; justify-content: space-between; align-items: center; padding: 5px 0; }
+        .map-stat:not(:last-child) { border-bottom: 1px solid var(--border); }
+        .map-stat-label { font-size: 11.5px; color: var(--muted); }
+        .map-stat-val   { font-size: 12.5px; font-weight: 700; color: var(--text); }
+
+        .broadcast-ring {
+            position: absolute;
+            bottom: 20px; left: 50%;
+            transform: translateX(-50%);
+            z-index: 500;
+            display: none;
+            align-items: center; gap: 9px;
+            background: rgba(34,197,94,0.9);
+            color: #fff;
+            padding: 9px 20px;
+            border-radius: 30px;
+            font-size: 12.5px; font-weight: 700;
+            box-shadow: 0 6px 20px rgba(34,197,94,0.45);
+            animation: pulse-glow 2s infinite;
+        }
+        .broadcast-ring.visible { display: flex; }
+        @keyframes pulse-glow { 0%,100%{box-shadow:0 6px 20px rgba(34,197,94,0.4)} 50%{box-shadow:0 6px 32px rgba(34,197,94,0.7)} }
+        .pulse-dot { width: 9px; height: 9px; background: #fff; border-radius: 50%; animation: blink 1s infinite; }
+
+        /* ── My Trips Panel ── */
+        .trips-panel {
+            flex-direction: column;
+            overflow-y: auto;
+            padding: 24px;
+            background: var(--bg);
+        }
+        .panel-header { margin-bottom: 20px; }
+        .panel-header h2 { font-size: 19px; font-weight: 700; }
+        .panel-header p { font-size: 13px; color: var(--muted); margin-top: 3px; }
+
+        .trip-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 16px 18px;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            transition: border-color 0.2s;
+        }
+        .trip-card:hover { border-color: var(--border2); }
+        .trip-card-icon {
+            width: 44px; height: 44px; min-width: 44px;
+            border-radius: 11px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 22px;
+        }
+        .trip-card-icon.morning { background: rgba(79,111,255,0.12); color: var(--accent); }
+        .trip-card-icon.evening { background: rgba(245,158,11,0.12); color: var(--orange); }
+        .trip-card-icon.done    { background: rgba(34,197,94,0.12); color: var(--green); }
+        .trip-card-body { flex-grow: 1; }
+        .trip-card-title { font-size: 14px; font-weight: 600; }
+        .trip-card-sub   { font-size: 12px; color: var(--muted); margin-top: 2px; }
+        .trip-card-meta  { font-size: 12px; color: var(--muted); margin-top: 4px; display: flex; gap: 14px; }
+        .trip-card-meta span { display: flex; align-items: center; gap: 4px; }
+        .trip-card-meta i { font-size: 13px; }
+        .trip-badge {
+            padding: 4px 10px; border-radius: 20px;
+            font-size: 11px; font-weight: 700;
+            flex-shrink: 0;
+        }
+        .trip-badge.active   { background: rgba(34,197,94,0.12); color: var(--green); }
+        .trip-badge.complete { background: rgba(79,111,255,0.12); color: var(--accent); }
+        .trip-badge.upcoming { background: rgba(245,158,11,0.12); color: var(--orange); }
+
+        .trips-stats {
+            display: grid;
+            grid-template-columns: repeat(3,1fr);
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        .stat-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 11px;
+            padding: 14px;
+            text-align: center;
+        }
+        .stat-num { font-size: 26px; font-weight: 800; color: var(--accent); line-height: 1; }
+        .stat-lbl { font-size: 11px; color: var(--muted); margin-top: 4px; font-weight: 500; }
+
+        /* ── Passengers Panel ── */
+        .passengers-panel {
+            flex-direction: column;
+            overflow-y: auto;
+            padding: 24px;
+            background: var(--bg);
+        }
+        .pax-summary {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+        .pax-icon { width: 44px; height: 44px; background: rgba(79,111,255,0.12); border-radius: 11px; display: flex; align-items: center; justify-content: center; font-size: 22px; color: var(--accent); flex-shrink: 0; }
+        .pax-num { font-size: 28px; font-weight: 800; color: var(--text); line-height: 1; }
+        .pax-lbl { font-size: 12px; color: var(--muted); }
+        .pax-bar-wrap { flex-grow: 1; }
+        .pax-bar-label { font-size: 11px; color: var(--muted); margin-bottom: 5px; display: flex; justify-content: space-between; }
+        .pax-bar-track { height: 8px; background: var(--border); border-radius: 4px; overflow: hidden; }
+        .pax-bar-fill  { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent2)); border-radius: 4px; transition: width 0.8s ease; }
+
+        .pax-list-title { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 10px; }
+        .pax-item {
+            display: flex; align-items: center; gap: 12px;
+            padding: 10px 14px;
+            background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+            margin-bottom: 8px;
+            transition: border-color 0.2s;
+        }
+        .pax-item:hover { border-color: var(--border2); }
+        .pax-avatar { width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg,var(--accent),var(--accent2)); display: flex; align-items: center; justify-content: center; font-size: 14px; color: #fff; flex-shrink: 0; }
+        .pax-name  { font-size: 13.5px; font-weight: 600; flex-grow: 1; }
+        .pax-stop  { font-size: 11.5px; color: var(--muted); }
+        .pax-check { font-size: 16px; color: var(--green); }
+
+        /* ── Alerts Panel ── */
+        .alerts-panel {
+            flex-direction: column;
+            overflow-y: auto;
+            padding: 24px;
+            background: var(--bg);
+        }
+        .alert-card {
+            display: flex; align-items: flex-start; gap: 13px;
+            background: var(--card); border: 1px solid var(--border);
+            border-radius: 12px; padding: 15px 16px;
+            margin-bottom: 10px;
+            border-left: 3px solid transparent;
+            transition: border-color 0.2s;
+        }
+        .alert-card.critical { border-left-color: var(--red); }
+        .alert-card.warning  { border-left-color: var(--orange); }
+        .alert-card.info     { border-left-color: var(--accent); }
+        .alert-card-icon {
+            width: 36px; height: 36px; border-radius: 9px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 18px; flex-shrink: 0;
+        }
+        .alert-card-icon.critical { background: rgba(239,68,68,0.12); color: var(--red); }
+        .alert-card-icon.warning  { background: rgba(245,158,11,0.12); color: var(--orange); }
+        .alert-card-icon.info     { background: rgba(79,111,255,0.12); color: var(--accent); }
+        .alert-card-body { flex-grow: 1; }
+        .alert-card-title { font-size: 13.5px; font-weight: 600; }
+        .alert-card-desc  { font-size: 12px; color: var(--muted); margin-top: 2px; }
+        .alert-card-time  { font-size: 10.5px; color: var(--muted); margin-top: 5px; }
+        .alert-dismiss { background: rgba(255,255,255,0.05); border: 1px solid var(--border); color: var(--muted); border-radius: 7px; padding: 5px 10px; font-size: 11.5px; cursor: pointer; transition: all 0.18s; flex-shrink: 0; margin-top: 2px; font-family: 'DM Sans',sans-serif; }
+        .alert-dismiss:hover { background: rgba(255,255,255,0.09); color: var(--text); }
+    </style>
+</head>
+<body>
+
+<!-- ── Sidebar ── -->
+<aside class="sidebar">
+    <div class="logo-row">
+        <div class="logo-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M184,24H72A32,32,0,0,0,40,56V208a16,16,0,0,0,16,16H56a16,16,0,0,0,16-16V192h112v16a16,16,0,0,0,16,16h0a16,16,0,0,0,16-16V56A32,32,0,0,0,184,24ZM56,168V120H200v48ZM200,104H56V56a16,16,0,0,1,16-16H184a16,16,0,0,1,16,16ZM88,84a12,12,0,1,1-12-12A12,12,0,0,1,88,84Zm92,0a12,12,0,1,1-12-12A12,12,0,0,1,180,84Zm-8,92a12,12,0,1,1-12-12A12,12,0,0,1,172,176Zm-80,0a12,12,0,1,1-12-12A12,12,0,0,1,92,176Z"/></svg></div>
+        <div class="logo-text">
+            <h2>BusTrack</h2>
+            <span>Driver Portal</span>
+        </div>
+    </div>
+
+    <div class="nav-section">Navigation</div>
+    <a class="nav-item active" href="#" onclick="switchView('live',this);return false;">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M228.92,49.69a8,8,0,0,0-6.86-1.45L160.93,63.52,99.58,32.84a8,8,0,0,0-6.46-.3L26.34,58.42A8,8,0,0,0,21,66V208a8,8,0,0,0,10.92,7.43l61.13-24.39,61.35,30.68A8.15,8.15,0,0,0,158,222a8,8,0,0,0,2.93-.55l66.8-25.88A8,8,0,0,0,235,188V56A8,8,0,0,0,228.92,49.69ZM96,55.75l64,32V200.25l-64-32ZM37,75.14l43-16.64V193.36L37,208.36ZM219,180.86l-43,16.64V62.64l43-16.64Z"/></svg> Live Map
+    </a>
+    <a class="nav-item" href="#" onclick="switchView('trips',this);return false;">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M224,128a8,8,0,0,1-8,8H120a8,8,0,0,1,0-16h96A8,8,0,0,1,224,128ZM120,72h96a8,8,0,0,0,0-16H120a8,8,0,0,0,0,16Zm96,112H120a8,8,0,0,0,0,16h96a8,8,0,0,0,0-16ZM49.66,85.66,82.34,53,96,66.63a8,8,0,0,0,11.32-11.32l-19-18.94a8,8,0,0,0-11.32,0l-38.72,38.7a8,8,0,0,0,11.32,11.32l0-.07Zm11.32,42.68a8,8,0,0,0-11.32,0l-16,16a8,8,0,0,0,11.32,11.32L48,153l5.66,5.66A8,8,0,1,0,65,147.34ZM60.34,196a8,8,0,0,0-11.32,11.32l16,16a8,8,0,0,0,11.32,0l40-40a8,8,0,0,0-11.32-11.32L72,215.31Z"/></svg> My Trips
+    </a>
+    <a class="nav-item" href="#" onclick="switchView('passengers',this);return false;">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M117.25,157.92a60,60,0,1,0-66.5,0A95.83,95.83,0,0,0,18.38,180.42a8,8,0,0,0,13.24,9C47.75,166.38,67.39,152,84,152s36.25,14.38,52.38,37.44a8,8,0,0,0,13.24-9A95.83,95.83,0,0,0,117.25,157.92ZM40,112a44,44,0,1,1,44,44A44.05,44.05,0,0,1,40,112Zm210.14,68.42a95.83,95.83,0,0,0-32.37-22.5,60,60,0,1,0-66.5,0,95.83,95.83,0,0,0-32.37,22.5,8,8,0,0,0,13.24,9C148.25,166.38,167.89,152,184,152s35.75,14.38,51.88,37.44a8,8,0,0,0,13.24-9ZM140,112a44,44,0,1,1,44,44A44.05,44.05,0,0,1,140,112Z"/></svg> Passengers
+    </a>
+    <a class="nav-item" href="#" onclick="switchView('alerts',this);return false;">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M221.8,175.94C216.25,166.38,208,139.33,208,104a80,80,0,1,0-160,0c0,35.34-8.26,62.38-13.81,71.94A16,16,0,0,0,48,200H88.81a40,40,0,0,0,78.38,0H208a16,16,0,0,0,13.8-24.06ZM128,216a24,24,0,0,1-22.62-16h45.24A24,24,0,0,1,128,216ZM48,184c7.7-13.24,16-43.92,16-80a64,64,0,1,1,128,0c0,36.05,8.28,66.73,16,80Z"/></svg> Alerts
+        <span style="margin-left:auto;background:var(--red);color:#fff;font-size:9px;font-weight:800;padding:1px 5px;border-radius:10px;">2</span>
+    </a>
+
+    <div class="nav-section">Settings</div>
+    <a class="nav-item" href="#" onclick="return false;">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M128,80a48,48,0,1,0,48,48A48.05,48.05,0,0,0,128,80Zm0,80a32,32,0,1,1,32-32A32,32,0,0,1,128,160Zm88-29.84q.06-2.16,0-4.32l14.92-18.64a8,8,0,0,0,1.48-7.06,107.21,107.21,0,0,0-10.88-26.25,8,8,0,0,0-6-3.93l-23.72-2.64q-1.48-1.56-3-3L186,40.54a8,8,0,0,0-3.94-6,107.71,107.71,0,0,0-26.25-10.87,8,8,0,0,0-7.06,1.49L130.16,40Q128,40,125.84,40L107.2,25.11a8,8,0,0,0-7.06-1.48A107.6,107.6,0,0,0,73.89,34.51a8,8,0,0,0-3.93,6L67.32,64.27q-1.56,1.49-3,3L40.54,70a8,8,0,0,0-6,3.94,107.71,107.71,0,0,0-10.87,26.25,8,8,0,0,0,1.49,7.06L40,125.84Q40,128,40,130.16L25.11,148.8a8,8,0,0,0-1.48,7.06,107.21,107.21,0,0,0,10.88,26.25,8,8,0,0,0,6,3.93l23.72,2.64q1.49,1.56,3,3L70,215.46a8,8,0,0,0,3.94,6,107.71,107.71,0,0,0,26.25,10.87,8,8,0,0,0,7.06-1.49L125.84,216q2.16.06,4.32,0l18.64,14.92a8,8,0,0,0,7.06,1.48,107.21,107.21,0,0,0,26.25-10.88,8,8,0,0,0,3.93-6l2.64-23.72q1.56-1.48,3-3L215.46,186a8,8,0,0,0,6-3.94,107.71,107.71,0,0,0,10.87-26.25,8,8,0,0,0-1.49-7.06Zm-16.1-6.5a73.93,73.93,0,0,1,0,8.68,8,8,0,0,0,1.74,5.48l14.19,17.73a91.57,91.57,0,0,1-6.23,15L187,173.11a8,8,0,0,0-5.1,2.64,74.11,74.11,0,0,1-6.14,6.14,8,8,0,0,0-2.64,5.1l-2.51,22.58a91.32,91.32,0,0,1-15,6.23l-17.74-14.19a8,8,0,0,0-5-1.75h-.48a73.93,73.93,0,0,1-8.68,0,8,8,0,0,0-5.48,1.74L100.45,215.8a91.57,91.57,0,0,1-15-6.23L82.89,187a8,8,0,0,0-2.64-5.1,74.11,74.11,0,0,1-6.14-6.14,8,8,0,0,0-5.1-2.64L46.43,170.6a91.32,91.32,0,0,1-6.23-15l14.19-17.74a8,8,0,0,0,1.74-5.48,73.93,73.93,0,0,1,0-8.68,8,8,0,0,0-1.74-5.48L40.2,100.45a91.57,91.57,0,0,1,6.23-15L69,82.89a8,8,0,0,0,5.1-2.64,74.11,74.11,0,0,1,6.14-6.14A8,8,0,0,0,82.89,69L85.4,46.43a91.32,91.32,0,0,1,15-6.23l17.74,14.19a8,8,0,0,0,5.48,1.74,73.93,73.93,0,0,1,8.68,0,8,8,0,0,0,5.48-1.74L155.55,40.2a91.57,91.57,0,0,1,15,6.23L173.11,69a8,8,0,0,0,2.64,5.1,74.11,74.11,0,0,1,6.14,6.14,8,8,0,0,0,5.1,2.64l22.58,2.51a91.32,91.32,0,0,1,6.23,15l-14.19,17.74A8,8,0,0,0,199.87,123.66Z"/></svg> Preferences
+    </a>
+
+    <div class="sidebar-footer">
+        <div class="driver-card">
+            <div class="driver-avatar"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm88,104a87.55,87.55,0,0,1-8.39,37.4L152,140.31V120a24,24,0,0,0-48,0v20.31L47.39,165.4A88,88,0,0,1,40,128a88.1,88.1,0,0,1,84-87.88V56a8,8,0,0,0,16,0V40.12A88.1,88.1,0,0,1,216,128Zm-88,16a8,8,0,0,1-8-8V120a8,8,0,0,1,16,0v16A8,8,0,0,1,128,144Zm-72.19,39.32L113,156.05A23.89,23.89,0,0,0,128,160a23.89,23.89,0,0,0,15-4l57.19,27.27A88,88,0,0,1,55.81,183.32Z"/></svg></div>
+            <div class="driver-info">
+                <h4>Ravi Patil</h4>
+                <p>Bus CB-101 · RTO Route</p>
+            </div>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M120,216a8,8,0,0,1-8,8H48a16,16,0,0,1-16-16V48A16,16,0,0,1,48,32h64a8,8,0,0,1,0,16H48V208h64A8,8,0,0,1,120,216Zm109.66-93.66-40-40a8,8,0,0,0-11.32,11.32L204.69,120H112a8,8,0,0,0,0,16h92.69l-26.35,26.34a8,8,0,0,0,11.32,11.32l40-40A8,8,0,0,0,229.66,122.34Z"/></svg>
+        </div>
+    </div>
+</aside>
+
+<!-- ── Main ── -->
+<div class="main">
+    <header class="topbar">
+        <div>
+            <h1 id="topbarTitle">Driver Dashboard</h1>
+            <div class="topbar-sub" id="dateTimeDisplay"></div>
+        </div>
+        <div class="topbar-right">
+            <div class="status-badge" id="statusBadge">
+                <div class="status-dot"></div>
+                <span id="statusText">Offline</span>
+            </div>
+        </div>
+    </header>
+
+    <div class="content">
+
+        <!-- ── LIVE MAP VIEW ── -->
+        <div class="view-panel live-panel active" id="view-live">
+            <!-- Left panel -->
+            <div class="left-panel">
+
+                <!-- Location sharing -->
+                <div class="card location-card" id="locationCard">
+                    <div class="card-title"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M80,128a48,48,0,1,1,48,48A48.05,48.05,0,0,1,80,128Zm48-32a32,32,0,1,0,32,32A32,32,0,0,0,128,96ZM28.67,176a103.55,103.55,0,0,1,0-96,8,8,0,0,0-14-7.76,119.55,119.55,0,0,0,0,111.52A8,8,0,0,0,28.67,176Zm193.33-48a103.55,103.55,0,0,1-14.67,52,8,8,0,1,0,13.66,8.36,119.7,119.7,0,0,0,0-120.72A8,8,0,1,0,207.33,76,103.55,103.55,0,0,1,222,128ZM69,80a8,8,0,0,0-11,2.67,87.6,87.6,0,0,0,0,90.66A8,8,0,0,0,72,176a7.91,7.91,0,0,0,2.66-.45A8,8,0,0,0,77,163.34,71.59,71.59,0,0,1,77,92.66,8,8,0,0,0,69,80Zm118,0a8,8,0,0,0-8,11.47,71.59,71.59,0,0,1,0,73A8,8,0,0,0,184,176a8,8,0,0,0,6.95-4,87.6,87.6,0,0,0,0-90.66A8,8,0,0,0,187,80Z"/></svg> Location Sharing</div>
+                    <button class="share-btn start" id="shareBtn" onclick="toggleSharing()">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M80,128a48,48,0,1,1,48,48A48.05,48.05,0,0,1,80,128Zm48-32a32,32,0,1,0,32,32A32,32,0,0,0,128,96ZM28.67,176a103.55,103.55,0,0,1,0-96,8,8,0,0,0-14-7.76,119.55,119.55,0,0,0,0,111.52A8,8,0,0,0,28.67,176Zm193.33-48a103.55,103.55,0,0,1-14.67,52,8,8,0,1,0,13.66,8.36,119.7,119.7,0,0,0,0-120.72A8,8,0,1,0,207.33,76,103.55,103.55,0,0,1,222,128ZM69,80a8,8,0,0,0-11,2.67,87.6,87.6,0,0,0,0,90.66A8,8,0,0,0,72,176a7.91,7.91,0,0,0,2.66-.45A8,8,0,0,0,77,163.34,71.59,71.59,0,0,1,77,92.66,8,8,0,0,0,69,80Zm118,0a8,8,0,0,0-8,11.47,71.59,71.59,0,0,1,0,73A8,8,0,0,0,184,176a8,8,0,0,0,6.95-4,87.6,87.6,0,0,0,0-90.66A8,8,0,0,0,187,80Z"/></svg>
+                        <span id="shareBtnText">Start Broadcasting</span>
+                    </button>
+                    <div class="location-info">
+                        <div class="loc-stat">
+                            <div class="loc-stat-label">Latitude</div>
+                            <div class="loc-stat-val" id="latDisplay">—</div>
+                        </div>
+                        <div class="loc-stat">
+                            <div class="loc-stat-label">Longitude</div>
+                            <div class="loc-stat-val" id="lngDisplay">—</div>
+                        </div>
+                        <div class="loc-stat">
+                            <div class="loc-stat-label">Speed</div>
+                            <div class="loc-stat-val green" id="speedDisplay">0 km/h</div>
+                        </div>
+                        <div class="loc-stat">
+                            <div class="loc-stat-label">Accuracy</div>
+                            <div class="loc-stat-val" id="accuracyDisplay">—</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Trip info -->
+                <div class="card">
+                    <div class="card-title"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M184,24H72A32,32,0,0,0,40,56V208a16,16,0,0,0,16,16H56a16,16,0,0,0,16-16V192h112v16a16,16,0,0,0,16,16h0a16,16,0,0,0,16-16V56A32,32,0,0,0,184,24ZM56,168V120H200v48ZM200,104H56V56a16,16,0,0,1,16-16H184a16,16,0,0,1,16,16ZM88,84a12,12,0,1,1-12-12A12,12,0,0,1,88,84Zm92,0a12,12,0,1,1-12-12A12,12,0,0,1,180,84Zm-8,92a12,12,0,1,1-12-12A12,12,0,0,1,172,176Zm-80,0a12,12,0,1,1-12-12A12,12,0,0,1,92,176Z"/></svg> Current Trip</div>
+                    <div class="trip-row">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M184,24H72A32,32,0,0,0,40,56V208a16,16,0,0,0,16,16H56a16,16,0,0,0,16-16V192h112v16a16,16,0,0,0,16,16h0a16,16,0,0,0,16-16V56A32,32,0,0,0,184,24ZM56,168V120H200v48ZM200,104H56V56a16,16,0,0,1,16-16H184a16,16,0,0,1,16,16ZM88,84a12,12,0,1,1-12-12A12,12,0,0,1,88,84Zm92,0a12,12,0,1,1-12-12A12,12,0,0,1,180,84Zm-8,92a12,12,0,1,1-12-12A12,12,0,0,1,172,176Zm-80,0a12,12,0,1,1-12-12A12,12,0,0,1,92,176Z"/></svg>
+                        <div class="trip-row-body">
+                            <div class="trip-row-label">Bus Number</div>
+                            <div class="trip-row-val">CB-101</div>
+                        </div>
+                    </div>
+                    <div class="trip-row">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M208,104a32,32,0,1,0-40,31v9a32,32,0,0,1-32,32H108.42a48.12,48.12,0,0,0-8.42-15.56V88a32,32,0,1,0-32,0v80a32,32,0,1,0,32.93.43A32.14,32.14,0,0,0,116,144h27.69A48.09,48.09,0,0,0,192,96V87A32.06,32.06,0,0,0,208,104ZM68,56A16,16,0,1,1,84,72,16,16,0,0,1,68,56Zm16,160a16,16,0,1,1,16-16A16,16,0,0,1,84,216Zm112-96a16,16,0,1,1,16-16A16,16,0,0,1,196,120Z"/></svg>
+                        <div class="trip-row-body">
+                            <div class="trip-row-label">Route</div>
+                            <div class="trip-row-val">R.T.O → JCER</div>
+                        </div>
+                    </div>
+                    <div class="trip-row">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M244.8,150.4a8,8,0,0,1-11.2-1.6A51.6,51.6,0,0,0,192,128a8,8,0,0,1-7.37-4.89,8,8,0,0,1,7.37-11.11,24,24,0,1,0-23.24-30,8,8,0,1,1-15.5-4A40,40,0,1,1,219,117.51a67.94,67.94,0,0,1,27.43,21.68A8,8,0,0,1,244.8,150.4Zm-24.4,29.12A67.33,67.33,0,0,0,192,136a67.33,67.33,0,0,0-28.4,4.48,8,8,0,1,0,6.24,14.74A51.6,51.6,0,0,1,192,152a51.6,51.6,0,0,1,41.6,20.8,8,8,0,0,0,12.8-9.6A67.33,67.33,0,0,0,220.4,179.52ZM128,80a48,48,0,1,0,48,48A48.05,48.05,0,0,0,128,80Zm0,80a32,32,0,1,1,32-32A32,32,0,0,1,128,160Zm-29.06,18.71A67.39,67.39,0,0,0,64,168a67.39,67.39,0,0,0-34.94,10.71,8,8,0,1,0,8.88,13.28A51.8,51.8,0,0,1,64,184a51.8,51.8,0,0,1,26.06,7.99,8,8,0,0,0,8.88-13.28Z"/></svg>
+                        <div class="trip-row-body">
+                            <div class="trip-row-label">Passengers</div>
+                            <div class="trip-row-val">34 / 50</div>
+                        </div>
+                    </div>
+                    <div class="trip-row">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm0,192a88,88,0,1,1,88-88A88.1,88.1,0,0,1,128,216Zm64-88a8,8,0,0,1-8,8H128a8,8,0,0,1-8-8V72a8,8,0,0,1,16,0v48h48A8,8,0,0,1,192,128Z"/></svg>
+                        <div class="trip-row-body">
+                            <div class="trip-row-label">Scheduled Departure</div>
+                            <div class="trip-row-val">08:15 AM</div>
+                        </div>
+                    </div>
+                    <div class="trip-row">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M42.76,50A8,8,0,0,0,40,56V224a8,8,0,0,0,16,0V179.77c26.79-21.16,49.87-9.75,76.45,3.41C147.28,191.68,163,200,184,200a60.63,60.63,0,0,0,33.21-10,8,8,0,0,0,2.79-9L196.09,52a8,8,0,0,0-10.81-4.21C171,56.2,156.5,52.26,140,47.84,117.08,41.74,90.53,34.83,56,50A8.08,8.08,0,0,0,42.76,50ZM188.62,68.1,197.33,96H164V68A41.85,41.85,0,0,1,188.62,68.1ZM56,64c19.21-8.27,38.58-7,64,0V96H56ZM56,112h64v26.59c-21.75-5.79-43.41-11.28-64,0ZM56,157.7c14.6-7.6,30.1-4.54,48,0V184H56ZM164,184V154.39c17.16,4.84,30.31.5,44.64-5.3l2.92,10H164Z"/></svg>
+                        <div class="trip-row-body">
+                            <div class="trip-row-label">ETA to College</div>
+                            <div class="trip-row-val" id="etaDisplay">~22 mins</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Stop progress -->
+                <div class="card">
+                    <div class="card-title"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M128,16a96,96,0,1,0,96,96A96.11,96.11,0,0,0,128,16Zm0,176a80,80,0,1,1,80-80A80.09,80.09,0,0,1,128,192Zm32-80a32,32,0,1,1-32-32A32,32,0,0,1,160,112Z"/></svg> Route Stops</div>
+                    <div class="stop-list">
+                        <div class="stop-item">
+                            <div class="stop-dot done"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0;font-size:9px"><path d="M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z"/></svg></div>
+                            <div class="stop-name">R.T.O Circle</div>
+                            <span class="stop-time">08:15</span>
+                        </div>
+                        <div class="stop-item">
+                            <div class="stop-dot done"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0;font-size:9px"><path d="M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z"/></svg></div>
+                            <div class="stop-name">Shivaji Nagar</div>
+                            <span class="stop-time">08:22</span>
+                        </div>
+                        <div class="stop-item">
+                            <div class="stop-dot current"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0;font-size:9px"><path d="M128,80a48,48,0,1,0,48,48A48.05,48.05,0,0,0,128,80Zm0,80a32,32,0,1,1,32-32A32,32,0,0,1,128,160Z"/></svg></div>
+                            <div class="stop-name">Mahantesh Nagar</div>
+                            <span class="stop-time">08:35</span>
+                        </div>
+                        <div class="stop-item">
+                            <div class="stop-dot">4</div>
+                            <div class="stop-name">Vadagaon</div>
+                            <span class="stop-time">08:48</span>
+                        </div>
+                        <div class="stop-item">
+                            <div class="stop-dot">5</div>
+                            <div class="stop-name">JCER Gate</div>
+                            <span class="stop-time">08:57</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Map -->
+            <div class="map-wrap">
+                <div id="driver-map"></div>
+                <div class="map-overlay">
+                    <div class="map-overlay-title">Live Stats</div>
+                    <div class="map-stat">
+                        <span class="map-stat-label">Next Stop</span>
+                        <span class="map-stat-val">Vadagaon</span>
+                    </div>
+                    <div class="map-stat">
+                        <span class="map-stat-label">Distance Left</span>
+                        <span class="map-stat-val">4.2 km</span>
+                    </div>
+                    <div class="map-stat">
+                        <span class="map-stat-label">Avg Speed</span>
+                        <span class="map-stat-val" id="avgSpeed">0 km/h</span>
+                    </div>
+                    <div class="map-stat">
+                        <span class="map-stat-label">Tracking</span>
+                        <span class="map-stat-val" id="trackingStatus" style="color:var(--muted)">Off</span>
+                    </div>
+                </div>
+                <div class="broadcast-ring" id="broadcastRing">
+                    <div class="pulse-dot"></div>
+                    Broadcasting Live Location
+                </div>
+            </div>
+        </div>
+
+        <!-- ── MY TRIPS VIEW ── -->
+        <div class="view-panel trips-panel" id="view-trips">
+            <div class="panel-header">
+                <h2>My Trips</h2>
+                <p>Your journey history and upcoming schedule</p>
+            </div>
+            <div class="trips-stats">
+                <div class="stat-card">
+                    <div class="stat-num">24</div>
+                    <div class="stat-lbl">Total Trips</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-num">847</div>
+                    <div class="stat-lbl">Pax Served</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-num">98%</div>
+                    <div class="stat-lbl">On-Time Rate</div>
+                </div>
+            </div>
+
+            <div class="trip-card">
+                <div class="trip-card-icon morning"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M120,40V16a8,8,0,0,1,16,0V40a8,8,0,0,1-16,0Zm72,88a64,64,0,1,1-64-64A64.07,64.07,0,0,1,192,128Zm-16,0a48,48,0,1,0-48,48A48.05,48.05,0,0,0,176,128ZM58.34,69.66A8,8,0,0,0,69.66,58.34l-16-16A8,8,0,0,0,42.34,53.66Zm0,116.68-16,16a8,8,0,0,0,11.32,11.32l16-16a8,8,0,0,0-11.32-11.32ZM192,72a8,8,0,0,0,5.66-2.34l16-16a8,8,0,0,0-11.32-11.32l-16,16A8,8,0,0,0,192,72Zm5.66,114.34a8,8,0,0,0-11.32,11.32l16,16a8,8,0,0,0,11.32-11.32ZM48,128a8,8,0,0,0-8-8H16a8,8,0,0,0,0,16H40A8,8,0,0,0,48,128Zm80,80a8,8,0,0,0-8,8v24a8,8,0,0,0,16,0V216A8,8,0,0,0,128,208Zm112-88H216a8,8,0,0,0,0,16h24a8,8,0,0,0,0-16Z"/></svg></div>
+                <div class="trip-card-body">
+                    <div class="trip-card-title">Morning Trip — R.T.O → JCER</div>
+                    <div class="trip-card-sub">Bus CB-101 · Today</div>
+                    <div class="trip-card-meta">
+                        <span><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm0,192a88,88,0,1,1,88-88A88.1,88.1,0,0,1,128,216Zm64-88a8,8,0,0,1-8,8H128a8,8,0,0,1-8-8V72a8,8,0,0,1,16,0v48h48A8,8,0,0,1,192,128Z"/></svg> 08:15 AM – 08:57 AM</span>
+                        <span><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M117.25,157.92a60,60,0,1,0-66.5,0A95.83,95.83,0,0,0,18.38,180.42a8,8,0,0,0,13.24,9C47.75,166.38,67.39,152,84,152s36.25,14.38,52.38,37.44a8,8,0,0,0,13.24-9A95.83,95.83,0,0,0,117.25,157.92ZM40,112a44,44,0,1,1,44,44A44.05,44.05,0,0,1,40,112Zm210.14,68.42a95.83,95.83,0,0,0-32.37-22.5,60,60,0,1,0-66.5,0,95.83,95.83,0,0,0-32.37,22.5,8,8,0,0,0,13.24,9C148.25,166.38,167.89,152,184,152s35.75,14.38,51.88,37.44a8,8,0,0,0,13.24-9ZM140,112a44,44,0,1,1,44,44A44.05,44.05,0,0,1,140,112Z"/></svg> 34 passengers</span>
+                    </div>
+                </div>
+                <div class="trip-badge active">Active</div>
+            </div>
+
+            <div class="trip-card">
+                <div class="trip-card-icon evening"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M233.54,142.23a8,8,0,0,0-8-2,88.08,88.08,0,0,1-109.8-109.8,8,8,0,0,0-10-10,104.84,104.84,0,0,0-52.91,37A104,104,0,0,0,136,224a103.09,103.09,0,0,0,62.52-20.88,104.84,104.84,0,0,0,37-52.91A8,8,0,0,0,233.54,142.23ZM188.9,190.34A88,88,0,0,1,65.66,67.11a89,89,0,0,1,31.4-26A106,106,0,0,0,96,56a104.11,104.11,0,0,0,104,104,106,106,0,0,0,14.92-1.06A89,89,0,0,1,188.9,190.34Z"/></svg></div>
+                <div class="trip-card-body">
+                    <div class="trip-card-title">Evening Trip — JCER → R.T.O</div>
+                    <div class="trip-card-sub">Bus CB-101 · Today</div>
+                    <div class="trip-card-meta">
+                        <span><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm0,192a88,88,0,1,1,88-88A88.1,88.1,0,0,1,128,216Zm64-88a8,8,0,0,1-8,8H128a8,8,0,0,1-8-8V72a8,8,0,0,1,16,0v48h48A8,8,0,0,1,192,128Z"/></svg> 05:30 PM – 06:15 PM</span>
+                        <span><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M117.25,157.92a60,60,0,1,0-66.5,0A95.83,95.83,0,0,0,18.38,180.42a8,8,0,0,0,13.24,9C47.75,166.38,67.39,152,84,152s36.25,14.38,52.38,37.44a8,8,0,0,0,13.24-9A95.83,95.83,0,0,0,117.25,157.92ZM40,112a44,44,0,1,1,44,44A44.05,44.05,0,0,1,40,112Zm210.14,68.42a95.83,95.83,0,0,0-32.37-22.5,60,60,0,1,0-66.5,0,95.83,95.83,0,0,0-32.37,22.5,8,8,0,0,0,13.24,9C148.25,166.38,167.89,152,184,152s35.75,14.38,51.88,37.44a8,8,0,0,0,13.24-9ZM140,112a44,44,0,1,1,44,44A44.05,44.05,0,0,1,140,112Z"/></svg> ~40 passengers (est.)</span>
+                    </div>
+                </div>
+                <div class="trip-badge upcoming">Upcoming</div>
+            </div>
+
+            <div class="trip-card">
+                <div class="trip-card-icon done"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M173.66,98.34a8,8,0,0,1,0,11.32l-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L112,148.69l50.34-50.35A8,8,0,0,1,173.66,98.34ZM232,128A104,104,0,1,1,128,24,104.11,104.11,0,0,1,232,128Zm-16,0a88,88,0,1,0-88,88A88.1,88.1,0,0,0,216,128Z"/></svg></div>
+                <div class="trip-card-body">
+                    <div class="trip-card-title">Morning Trip — R.T.O → JCER</div>
+                    <div class="trip-card-sub">Bus CB-101 · Yesterday</div>
+                    <div class="trip-card-meta">
+                        <span><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm0,192a88,88,0,1,1,88-88A88.1,88.1,0,0,1,128,216Zm64-88a8,8,0,0,1-8,8H128a8,8,0,0,1-8-8V72a8,8,0,0,1,16,0v48h48A8,8,0,0,1,192,128Z"/></svg> 08:15 AM – 08:52 AM</span>
+                        <span><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M117.25,157.92a60,60,0,1,0-66.5,0A95.83,95.83,0,0,0,18.38,180.42a8,8,0,0,0,13.24,9C47.75,166.38,67.39,152,84,152s36.25,14.38,52.38,37.44a8,8,0,0,0,13.24-9A95.83,95.83,0,0,0,117.25,157.92ZM40,112a44,44,0,1,1,44,44A44.05,44.05,0,0,1,40,112Zm210.14,68.42a95.83,95.83,0,0,0-32.37-22.5,60,60,0,1,0-66.5,0,95.83,95.83,0,0,0-32.37,22.5,8,8,0,0,0,13.24,9C148.25,166.38,167.89,152,184,152s35.75,14.38,51.88,37.44a8,8,0,0,0,13.24-9ZM140,112a44,44,0,1,1,44,44A44.05,44.05,0,0,1,140,112Z"/></svg> 38 passengers</span>
+                    </div>
+                </div>
+                <div class="trip-badge complete">Complete</div>
+            </div>
+
+            <div class="trip-card">
+                <div class="trip-card-icon done"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M173.66,98.34a8,8,0,0,1,0,11.32l-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L112,148.69l50.34-50.35A8,8,0,0,1,173.66,98.34ZM232,128A104,104,0,1,1,128,24,104.11,104.11,0,0,1,232,128Zm-16,0a88,88,0,1,0-88,88A88.1,88.1,0,0,0,216,128Z"/></svg></div>
+                <div class="trip-card-body">
+                    <div class="trip-card-title">Evening Trip — JCER → R.T.O</div>
+                    <div class="trip-card-sub">Bus CB-101 · Yesterday</div>
+                    <div class="trip-card-meta">
+                        <span><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm0,192a88,88,0,1,1,88-88A88.1,88.1,0,0,1,128,216Zm64-88a8,8,0,0,1-8,8H128a8,8,0,0,1-8-8V72a8,8,0,0,1,16,0v48h48A8,8,0,0,1,192,128Z"/></svg> 05:30 PM – 06:08 PM</span>
+                        <span><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M117.25,157.92a60,60,0,1,0-66.5,0A95.83,95.83,0,0,0,18.38,180.42a8,8,0,0,0,13.24,9C47.75,166.38,67.39,152,84,152s36.25,14.38,52.38,37.44a8,8,0,0,0,13.24-9A95.83,95.83,0,0,0,117.25,157.92ZM40,112a44,44,0,1,1,44,44A44.05,44.05,0,0,1,40,112Zm210.14,68.42a95.83,95.83,0,0,0-32.37-22.5,60,60,0,1,0-66.5,0,95.83,95.83,0,0,0-32.37,22.5,8,8,0,0,0,13.24,9C148.25,166.38,167.89,152,184,152s35.75,14.38,51.88,37.44a8,8,0,0,0,13.24-9ZM140,112a44,44,0,1,1,44,44A44.05,44.05,0,0,1,140,112Z"/></svg> 41 passengers</span>
+                    </div>
+                </div>
+                <div class="trip-badge complete">Complete</div>
+            </div>
+
+            <div class="trip-card">
+                <div class="trip-card-icon done"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M173.66,98.34a8,8,0,0,1,0,11.32l-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L112,148.69l50.34-50.35A8,8,0,0,1,173.66,98.34ZM232,128A104,104,0,1,1,128,24,104.11,104.11,0,0,1,232,128Zm-16,0a88,88,0,1,0-88,88A88.1,88.1,0,0,0,216,128Z"/></svg></div>
+                <div class="trip-card-body">
+                    <div class="trip-card-title">Morning Trip — R.T.O → JCER</div>
+                    <div class="trip-card-sub">Bus CB-101 · Mon 17 Mar</div>
+                    <div class="trip-card-meta">
+                        <span><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm0,192a88,88,0,1,1,88-88A88.1,88.1,0,0,1,128,216Zm64-88a8,8,0,0,1-8,8H128a8,8,0,0,1-8-8V72a8,8,0,0,1,16,0v48h48A8,8,0,0,1,192,128Z"/></svg> 08:15 AM – 09:01 AM</span>
+                        <span><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M117.25,157.92a60,60,0,1,0-66.5,0A95.83,95.83,0,0,0,18.38,180.42a8,8,0,0,0,13.24,9C47.75,166.38,67.39,152,84,152s36.25,14.38,52.38,37.44a8,8,0,0,0,13.24-9A95.83,95.83,0,0,0,117.25,157.92ZM40,112a44,44,0,1,1,44,44A44.05,44.05,0,0,1,40,112Zm210.14,68.42a95.83,95.83,0,0,0-32.37-22.5,60,60,0,1,0-66.5,0,95.83,95.83,0,0,0-32.37,22.5,8,8,0,0,0,13.24,9C148.25,166.38,167.89,152,184,152s35.75,14.38,51.88,37.44a8,8,0,0,0,13.24-9ZM140,112a44,44,0,1,1,44,44A44.05,44.05,0,0,1,140,112Z"/></svg> 29 passengers</span>
+                    </div>
+                </div>
+                <div class="trip-badge complete">Complete</div>
+            </div>
+        </div>
+
+        <!-- ── PASSENGERS VIEW ── -->
+        <div class="view-panel passengers-panel" id="view-passengers">
+            <div class="panel-header">
+                <h2>Passengers</h2>
+                <p>Current boarding manifest for CB-101</p>
+            </div>
+            <div class="pax-summary">
+                <div class="pax-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M244.8,150.4a8,8,0,0,1-11.2-1.6A51.6,51.6,0,0,0,192,128a8,8,0,0,1-7.37-4.89,8,8,0,0,1,7.37-11.11,24,24,0,1,0-23.24-30,8,8,0,1,1-15.5-4A40,40,0,1,1,219,117.51a67.94,67.94,0,0,1,27.43,21.68A8,8,0,0,1,244.8,150.4Zm-24.4,29.12A67.33,67.33,0,0,0,192,136a67.33,67.33,0,0,0-28.4,4.48,8,8,0,1,0,6.24,14.74A51.6,51.6,0,0,1,192,152a51.6,51.6,0,0,1,41.6,20.8,8,8,0,0,0,12.8-9.6A67.33,67.33,0,0,0,220.4,179.52ZM128,80a48,48,0,1,0,48,48A48.05,48.05,0,0,0,128,80Zm0,80a32,32,0,1,1,32-32A32,32,0,0,1,128,160Zm-29.06,18.71A67.39,67.39,0,0,0,64,168a67.39,67.39,0,0,0-34.94,10.71,8,8,0,1,0,8.88,13.28A51.8,51.8,0,0,1,64,184a51.8,51.8,0,0,1,26.06,7.99,8,8,0,0,0,8.88-13.28Z"/></svg></div>
+                <div>
+                    <div class="pax-num">34</div>
+                    <div class="pax-lbl">Boarded / 50 Capacity</div>
+                </div>
+                <div class="pax-bar-wrap">
+                    <div class="pax-bar-label">
+                        <span>Occupancy</span>
+                        <span>68%</span>
+                    </div>
+                    <div class="pax-bar-track">
+                        <div class="pax-bar-fill" style="width:68%"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pax-list-title">Boarded Passengers</div>
+
+            <div class="pax-item">
+                <div class="pax-avatar"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M230.92,212c-15.23-26.33-38.7-45.21-66.09-54.16a72,72,0,1,0-73.66,0C63.78,166.78,40.31,185.66,25.08,212a8,8,0,1,0,13.85,8c18.84-32.56,52.14-52,89.07-52s70.23,19.44,89.07,52a8,8,0,1,0,13.85-8ZM72,96a56,56,0,1,1,56,56A56.06,56.06,0,0,1,72,96Z"/></svg></div>
+                <div>
+                    <div class="pax-name">Vedant Shelar</div>
+                    <div class="pax-stop">Stop: Mahantesh Nagar</div>
+                </div>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M173.66,98.34a8,8,0,0,1,0,11.32l-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L112,148.69l50.34-50.35A8,8,0,0,1,173.66,98.34ZM232,128A104,104,0,1,1,128,24,104.11,104.11,0,0,1,232,128Zm-16,0a88,88,0,1,0-88,88A88.1,88.1,0,0,0,216,128Z"/></svg>
+            </div>
+            <div class="pax-item">
+                <div class="pax-avatar"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M230.92,212c-15.23-26.33-38.7-45.21-66.09-54.16a72,72,0,1,0-73.66,0C63.78,166.78,40.31,185.66,25.08,212a8,8,0,1,0,13.85,8c18.84-32.56,52.14-52,89.07-52s70.23,19.44,89.07,52a8,8,0,1,0,13.85-8ZM72,96a56,56,0,1,1,56,56A56.06,56.06,0,0,1,72,96Z"/></svg></div>
+                <div>
+                    <div class="pax-name">Priya Sharma</div>
+                    <div class="pax-stop">Stop: Shivaji Nagar</div>
+                </div>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M173.66,98.34a8,8,0,0,1,0,11.32l-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L112,148.69l50.34-50.35A8,8,0,0,1,173.66,98.34ZM232,128A104,104,0,1,1,128,24,104.11,104.11,0,0,1,232,128Zm-16,0a88,88,0,1,0-88,88A88.1,88.1,0,0,0,216,128Z"/></svg>
+            </div>
+            <div class="pax-item">
+                <div class="pax-avatar"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M230.92,212c-15.23-26.33-38.7-45.21-66.09-54.16a72,72,0,1,0-73.66,0C63.78,166.78,40.31,185.66,25.08,212a8,8,0,1,0,13.85,8c18.84-32.56,52.14-52,89.07-52s70.23,19.44,89.07,52a8,8,0,1,0,13.85-8ZM72,96a56,56,0,1,1,56,56A56.06,56.06,0,0,1,72,96Z"/></svg></div>
+                <div>
+                    <div class="pax-name">Arjun Patil</div>
+                    <div class="pax-stop">Stop: R.T.O Circle</div>
+                </div>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M173.66,98.34a8,8,0,0,1,0,11.32l-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L112,148.69l50.34-50.35A8,8,0,0,1,173.66,98.34ZM232,128A104,104,0,1,1,128,24,104.11,104.11,0,0,1,232,128Zm-16,0a88,88,0,1,0-88,88A88.1,88.1,0,0,0,216,128Z"/></svg>
+            </div>
+            <div class="pax-item">
+                <div class="pax-avatar"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M230.92,212c-15.23-26.33-38.7-45.21-66.09-54.16a72,72,0,1,0-73.66,0C63.78,166.78,40.31,185.66,25.08,212a8,8,0,1,0,13.85,8c18.84-32.56,52.14-52,89.07-52s70.23,19.44,89.07,52a8,8,0,1,0,13.85-8ZM72,96a56,56,0,1,1,56,56A56.06,56.06,0,0,1,72,96Z"/></svg></div>
+                <div>
+                    <div class="pax-name">Sneha Kulkarni</div>
+                    <div class="pax-stop">Stop: R.T.O Circle</div>
+                </div>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M173.66,98.34a8,8,0,0,1,0,11.32l-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L112,148.69l50.34-50.35A8,8,0,0,1,173.66,98.34ZM232,128A104,104,0,1,1,128,24,104.11,104.11,0,0,1,232,128Zm-16,0a88,88,0,1,0-88,88A88.1,88.1,0,0,0,216,128Z"/></svg>
+            </div>
+            <div class="pax-item">
+                <div class="pax-avatar"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M230.92,212c-15.23-26.33-38.7-45.21-66.09-54.16a72,72,0,1,0-73.66,0C63.78,166.78,40.31,185.66,25.08,212a8,8,0,1,0,13.85,8c18.84-32.56,52.14-52,89.07-52s70.23,19.44,89.07,52a8,8,0,1,0,13.85-8ZM72,96a56,56,0,1,1,56,56A56.06,56.06,0,0,1,72,96Z"/></svg></div>
+                <div>
+                    <div class="pax-name">Karan Mehta</div>
+                    <div class="pax-stop">Stop: Mahantesh Nagar</div>
+                </div>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M173.66,98.34a8,8,0,0,1,0,11.32l-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L112,148.69l50.34-50.35A8,8,0,0,1,173.66,98.34ZM232,128A104,104,0,1,1,128,24,104.11,104.11,0,0,1,232,128Zm-16,0a88,88,0,1,0-88,88A88.1,88.1,0,0,0,216,128Z"/></svg>
+            </div>
+            <div class="pax-item">
+                <div class="pax-avatar"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M230.92,212c-15.23-26.33-38.7-45.21-66.09-54.16a72,72,0,1,0-73.66,0C63.78,166.78,40.31,185.66,25.08,212a8,8,0,1,0,13.85,8c18.84-32.56,52.14-52,89.07-52s70.23,19.44,89.07,52a8,8,0,1,0,13.85-8ZM72,96a56,56,0,1,1,56,56A56.06,56.06,0,0,1,72,96Z"/></svg></div>
+                <div>
+                    <div class="pax-name">Rohan Desai</div>
+                    <div class="pax-stop">Stop: Shivaji Nagar</div>
+                </div>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M173.66,98.34a8,8,0,0,1,0,11.32l-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L112,148.69l50.34-50.35A8,8,0,0,1,173.66,98.34ZM232,128A104,104,0,1,1,128,24,104.11,104.11,0,0,1,232,128Zm-16,0a88,88,0,1,0-88,88A88.1,88.1,0,0,0,216,128Z"/></svg>
+            </div>
+            <div class="pax-item">
+                <div class="pax-avatar"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M230.92,212c-15.23-26.33-38.7-45.21-66.09-54.16a72,72,0,1,0-73.66,0C63.78,166.78,40.31,185.66,25.08,212a8,8,0,1,0,13.85,8c18.84-32.56,52.14-52,89.07-52s70.23,19.44,89.07,52a8,8,0,1,0,13.85-8ZM72,96a56,56,0,1,1,56,56A56.06,56.06,0,0,1,72,96Z"/></svg></div>
+                <div>
+                    <div class="pax-name">Ananya Rao</div>
+                    <div class="pax-stop">Stop: R.T.O Circle</div>
+                </div>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M173.66,98.34a8,8,0,0,1,0,11.32l-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L112,148.69l50.34-50.35A8,8,0,0,1,173.66,98.34ZM232,128A104,104,0,1,1,128,24,104.11,104.11,0,0,1,232,128Zm-16,0a88,88,0,1,0-88,88A88.1,88.1,0,0,0,216,128Z"/></svg>
+            </div>
+            <div class="pax-item">
+                <div class="pax-avatar"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M230.92,212c-15.23-26.33-38.7-45.21-66.09-54.16a72,72,0,1,0-73.66,0C63.78,166.78,40.31,185.66,25.08,212a8,8,0,1,0,13.85,8c18.84-32.56,52.14-52,89.07-52s70.23,19.44,89.07,52a8,8,0,1,0,13.85-8ZM72,96a56,56,0,1,1,56,56A56.06,56.06,0,0,1,72,96Z"/></svg></div>
+                <div>
+                    <div class="pax-name">Mihir Joshi</div>
+                    <div class="pax-stop">Stop: Mahantesh Nagar</div>
+                </div>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M173.66,98.34a8,8,0,0,1,0,11.32l-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L112,148.69l50.34-50.35A8,8,0,0,1,173.66,98.34ZM232,128A104,104,0,1,1,128,24,104.11,104.11,0,0,1,232,128Zm-16,0a88,88,0,1,0-88,88A88.1,88.1,0,0,0,216,128Z"/></svg>
+            </div>
+        </div>
+
+        <!-- ── ALERTS VIEW ── -->
+        <div class="view-panel alerts-panel" id="view-alerts">
+            <div class="panel-header">
+                <h2>Alerts</h2>
+                <p>2 active alerts for your route</p>
+            </div>
+
+            <div class="alert-card warning">
+                <div class="alert-card-icon warning"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M236,128A108,108,0,1,1,128,20,108.12,108.12,0,0,1,236,128Zm-16,0a92,92,0,1,0-92,92A92.1,92.1,0,0,0,220,128Zm-84,24a8,8,0,0,1-8,8,16,16,0,0,1-16-16V128a8,8,0,0,1,0-16,16,16,0,0,1,16,16v16A8,8,0,0,1,136,152Zm-24-72a12,12,0,1,1,12,12A12,12,0,0,1,112,80Z"/></svg></div>
+                <div class="alert-card-body">
+                    <div class="alert-card-title">Traffic Ahead</div>
+                    <div class="alert-card-desc">Heavy congestion reported near Vadagaon junction. Expect 10–15 min delay.</div>
+                    <div class="alert-card-time"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0;font-size:11px;"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm0,192a88,88,0,1,1,88-88A88.1,88.1,0,0,1,128,216Zm64-88a8,8,0,0,1-8,8H128a8,8,0,0,1-8-8V72a8,8,0,0,1,16,0v48h48A8,8,0,0,1,192,128Z"/></svg> 2 minutes ago</div>
+                </div>
+                <button class="alert-dismiss" onclick="dismissAlert(this)">Dismiss</button>
+            </div>
+
+            <div class="alert-card info">
+                <div class="alert-card-icon info"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm0,192a88,88,0,1,1,88-88A88.1,88.1,0,0,1,128,216Zm16-40a8,8,0,0,1-8,8,16,16,0,0,1-16-16V128a8,8,0,0,1,0-16,16,16,0,0,1,16,16v40A8,8,0,0,1,144,176ZM112,84a12,12,0,1,1,12,12A12,12,0,0,1,112,84Z"/></svg></div>
+                <div class="alert-card-body">
+                    <div class="alert-card-title">Schedule Update</div>
+                    <div class="alert-card-desc">Return trip moved to 5:30 PM today due to college function.</div>
+                    <div class="alert-card-time"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0;font-size:11px;"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm0,192a88,88,0,1,1,88-88A88.1,88.1,0,0,1,128,216Zm64-88a8,8,0,0,1-8,8H128a8,8,0,0,1-8-8V72a8,8,0,0,1,16,0v48h48A8,8,0,0,1,192,128Z"/></svg> 18 minutes ago</div>
+                </div>
+                <button class="alert-dismiss" onclick="dismissAlert(this)">Dismiss</button>
+            </div>
+
+            <div class="alert-card critical" style="opacity:0.5">
+                <div class="alert-card-icon critical"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M224.52,74.16l-48-32a8,8,0,1,0-8.8,13.37L204,74.67V88a24,24,0,0,0,0,48V200a8,8,0,0,1-16,0V176a24,24,0,0,0-24-24H152V56a16,16,0,0,0-16-16H64A16,16,0,0,0,48,56V216H32a8,8,0,0,0,0,16H176a8,8,0,0,0,0-16H160V168h4a8,8,0,0,1,8,8v24a24,24,0,0,0,48,0V88A8,8,0,0,0,224.52,74.16ZM64,56h72V120H64ZM216,112a8,8,0,1,1,0-16,8,8,0,0,1,0,16Z"/></svg></div>
+                <div class="alert-card-body">
+                    <div class="alert-card-title">Low Fuel Warning — Resolved</div>
+                    <div class="alert-card-desc">Fuel level was at 15%. Refilled at RTO depot this morning.</div>
+                    <div class="alert-card-time"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0;font-size:11px;color:var(--green);"><path d="M173.66,98.34a8,8,0,0,1,0,11.32l-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L112,148.69l50.34-50.35A8,8,0,0,1,173.66,98.34ZM232,128A104,104,0,1,1,128,24,104.11,104.11,0,0,1,232,128Zm-16,0a88,88,0,1,0-88,88A88.1,88.1,0,0,0,216,128Z"/></svg> Resolved · 3 hours ago</div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script>
+if (sessionStorage.getItem("bt_role") !== "driver") {
+    window.location.href = "login.html";
+}
+
+/* ── Socket.IO connection ── */
+const socket = io("http://localhost:5000");
+socket.on("connect", () => {
+    const busId   = localStorage.getItem("bt_busId")   || "CB-101";
+    const routeId = localStorage.getItem("bt_routeId") || "rto";
+    const driverId = localStorage.getItem("bt_email")  || "driver";
+    socket.emit("driverAuth", { busId, routeId, driverId });
+    console.log("Driver socket connected:", socket.id, busId, routeId);
+});
+socket.on("newAlert", (alert) => {
+    console.log("New alert:", alert.title);
+    // Update alert badge
+    const badge = document.getElementById("alertBadge");
+    if (badge) { badge.textContent = (parseInt(badge.textContent || "0") + 1).toString(); badge.style.display = ""; }
+});
+socket.on("broadcast", (data) => {
+    console.log("Broadcast:", data.message);
+});
+
+/* ── Populate driver name from auth ── */
+const btName = localStorage.getItem("bt_name");
+if (btName) {
+    document.querySelectorAll(".driver-name, #driverName").forEach(el => el.textContent = btName);
+}
+const btBusId = localStorage.getItem("bt_busId");
+if (btBusId) {
+    document.querySelectorAll(".bus-id-display, #busIdDisplay").forEach(el => el.textContent = btBusId);
+}
+
+/* ── Date/time ── */
+function updateTime() {
+    const now = new Date();
+    document.getElementById('dateTimeDisplay').textContent =
+        now.toLocaleDateString('en-IN', { weekday:'long', day:'numeric', month:'long' }) +
+        ' · ' + now.toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit' });
+}
+updateTime();
+setInterval(updateTime, 30000);
+
+/* ── View switching ── */
+const viewTitles = {
+    live: 'Live Map',
+    trips: 'My Trips',
+    passengers: 'Passengers',
+    alerts: 'Alerts'
+};
+
+function switchView(viewId, navEl) {
+    document.querySelectorAll('.view-panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    document.getElementById('view-' + viewId).classList.add('active');
+    if (navEl) navEl.classList.add('active');
+    document.getElementById('topbarTitle').textContent = viewTitles[viewId] || 'Driver Dashboard';
+    if (viewId === 'live') setTimeout(() => driverMap && driverMap.invalidateSize(), 200);
+}
+
+/* ── Dismiss alert ── */
+function dismissAlert(btn) {
+    const card = btn.closest('.alert-card');
+    card.style.transition = 'opacity 0.3s, height 0.3s';
+    card.style.opacity = '0';
+    setTimeout(() => { card.style.height = card.offsetHeight + 'px'; card.style.overflow = 'hidden'; setTimeout(() => { card.style.height = '0'; card.style.marginBottom = '0'; card.style.padding = '0'; }, 10); }, 300);
+}
+
+/* ════════════════════════════════════════════════════════
+   MAP — OSRM road-snapped routing + smooth animation
+   ════════════════════════════════════════════════════════ */
+
+const driverMap = L.map('driver-map', { zoomControl: true }).setView([15.8620, 74.5090], 14);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+}).addTo(driverMap);
+
+/* ── Named stops (lat, lng, label, done/current/upcoming) ── */
+const STOPS = [
+    { latlng: [15.8497, 74.4977], name: 'R.T.O Circle',     state: 'done'     },
+    { latlng: [15.8558, 74.5008], name: 'Shivaji Nagar',    state: 'done'     },
+    { latlng: [15.8635, 74.5055], name: 'Mahantesh Nagar',  state: 'current'  },
+    { latlng: [15.8702, 74.5140], name: 'Vadagaon',         state: 'upcoming' },
+    { latlng: [15.8765, 74.5198], name: 'JCER Gate', state: 'upcoming' },
+];
+
+/* ── Bus SVG icon (rotates to face direction of travel) ── */
+function makeBusIcon(bearing) {
+    return L.divIcon({
+        className: '',
+        html: `
+          <div style="
+            width:42px;height:42px;
+            display:flex;align-items:center;justify-content:center;
+            filter:drop-shadow(0 4px 12px rgba(79,111,255,0.65));
+            transform:rotate(${bearing}deg);
+            transition:transform 0.6s ease;
+          ">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"
+                 style="width:42px;height:42px;fill:#4F6FFF">
+              <path d="M184,24H72A32,32,0,0,0,40,56V208a16,16,0,0,0,16,16H56
+                       a16,16,0,0,0,16-16V192h112v16a16,16,0,0,0,16,16h0
+                       a16,16,0,0,0,16-16V56A32,32,0,0,0,184,24Z
+                       M56,168V120H200v48ZM200,104H56V56
+                       a16,16,0,0,1,16-16H184a16,16,0,0,1,16,16Z
+                       M88,84a12,12,0,1,1-12-12A12,12,0,0,1,88,84Z
+                       m92,0a12,12,0,1,1-12-12A12,12,0,0,1,180,84Z
+                       m-8,92a12,12,0,1,1-12-12A12,12,0,0,1,172,176Z
+                       m-80,0a12,12,0,1,1-12-12A12,12,0,0,1,92,176Z"/>
+            </svg>
+          </div>`,
+        iconSize:   [42, 42],
+        iconAnchor: [21, 21],
+    });
+}
+
+/* ── Stop markers ── */
+const stopColours = { done: '#4F6FFF', current: '#22C55E', upcoming: '#6B7280' };
+const stopMarkers = {};
+STOPS.forEach(stop => {
+    const col = stopColours[stop.state];
+    const radius = stop.state === 'current' ? 10 : 8;
+    const marker = L.circleMarker(stop.latlng, {
+        radius, fillColor: col, color: '#0D0F14',
+        weight: 2.5, fillOpacity: 1
+    }).addTo(driverMap).bindPopup(`<b>${stop.name}</b><br><small style="color:${col}">${stop.state}</small>`);
+    stopMarkers[stop.name] = marker;
+});
+
+/* ── State ── */
+let routeCoords     = [];   // full road-snapped coords from OSRM
+let routePolyline   = null; // drawn polyline
+let coveredPolyline = null; // "travelled" portion (brighter)
+let driverMarker    = null;
+let animFrame       = null;
+let routeReady      = false;
+
+// Animation state
+let animSegIdx  = 0;    // which segment of routeCoords we're on
+let animSegT    = 0;    // 0-1 progress within that segment
+let animSpeed   = 0.00018; // progress per ms (≈ 30–40 km/h on this route)
+let lastTs      = null;
+
+/* ── Bearing between two [lat,lng] points ── */
+function bearing(a, b) {
+    const toRad = d => d * Math.PI / 180;
+    const toDeg = r => r * 180 / Math.PI;
+    const dLng  = toRad(b[1] - a[1]);
+    const lat1  = toRad(a[0]), lat2 = toRad(b[0]);
+    const y = Math.sin(dLng) * Math.cos(lat2);
+    const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLng);
+    return (toDeg(Math.atan2(y, x)) + 360) % 360;
+}
+
+/* ── Interpolate position along routeCoords ── */
+function interpolate(coords, segIdx, t) {
+    const a = coords[segIdx], b = coords[segIdx + 1] || coords[segIdx];
+    return [
+        a[0] + (b[0] - a[0]) * t,
+        a[1] + (b[1] - a[1]) * t,
+    ];
+}
+
+/* ── Draw / update the "covered" portion of the route ── */
+function updateCoveredLine(coords, segIdx, t) {
+    const covered = coords.slice(0, segIdx + 1);
+    const cur = interpolate(coords, segIdx, t);
+    covered.push(cur);
+
+    if (coveredPolyline) {
+        coveredPolyline.setLatLngs(covered);
+    } else {
+        coveredPolyline = L.polyline(covered, {
+            color: '#22C55E', weight: 5, opacity: 0.9,
+        }).addTo(driverMap);
+        coveredPolyline.bringToFront();
+    }
+}
+
+/* ── Main animation loop (requestAnimationFrame) ── */
+function animateMarker(ts) {
+    if (!routeReady || !driverMarker) return;
+    if (lastTs === null) lastTs = ts;
+    const dt = Math.min(ts - lastTs, 200); // cap at 200ms to avoid jump on tab-switch
+    lastTs = ts;
+
+    const coords = routeCoords;
+    if (animSegIdx >= coords.length - 1) {
+        // Reached end — restart loop
+        animSegIdx = 0;
+        animSegT   = 0;
+    }
+
+    animSegT += animSpeed * dt;
+    while (animSegT >= 1 && animSegIdx < coords.length - 2) {
+        animSegT -= 1;
+        animSegIdx++;
+    }
+    animSegT = Math.min(animSegT, 1);
+
+    const pos     = interpolate(coords, animSegIdx, animSegT);
+    const nextIdx = Math.min(animSegIdx + 1, coords.length - 1);
+    const hdg     = bearing(coords[animSegIdx], coords[nextIdx]);
+
+    driverMarker.setLatLng(pos);
+    driverMarker.setIcon(makeBusIcon(hdg));
+
+    updateCoveredLine(coords, animSegIdx, animSegT);
+
+    // Update HUD
+    const pct = Math.round(((animSegIdx + animSegT) / (coords.length - 1)) * 100);
+    const etaMins = Math.round(((coords.length - 1 - animSegIdx) / (coords.length - 1)) * 35);
+    document.getElementById('etaDisplay').textContent = etaMins > 0 ? `~${etaMins} mins` : 'Arriving…';
+    document.getElementById('avgSpeed').textContent = '32 km/h';
+
+    // Scroll map to follow bus (only if user hasn't panned)
+    if (!driverMap._mapFollowPaused) {
+        driverMap.panTo(pos, { animate: true, duration: 0.5, easeLinearity: 0.5 });
+    }
+
+    animFrame = requestAnimationFrame(animateMarker);
+}
+
+/* ── Fetch route from OSRM public API ── */
+async function fetchOSRMRoute() {
+    // Build coordinate string: lon,lat;lon,lat;...
+    const coords = STOPS.map(s => `${s.latlng[1]},${s.latlng[0]}`).join(';');
+    const url = `https://router.project-osrm.org/route/v1/driving/${coords}` +
+                `?overview=full&geometries=geojson&steps=false`;
+
+    try {
+        const resp = await fetch(url);
+        if (!resp.ok) throw new Error(`OSRM ${resp.status}`);
+        const data = await resp.json();
+
+        if (!data.routes || !data.routes[0]) throw new Error('No route returned');
+        const geom = data.routes[0].geometry.coordinates; // [ [lng,lat], ... ]
+
+        // OSRM returns [lng,lat] — convert to [lat,lng] for Leaflet
+        routeCoords = geom.map(c => [c[1], c[0]]);
+
+        // Draw base polyline (grey/dim background)
+        if (routePolyline) driverMap.removeLayer(routePolyline);
+        routePolyline = L.polyline(routeCoords, {
+            color: '#2D344F', weight: 6, opacity: 0.8,
+        }).addTo(driverMap);
+
+        // Fit map to route
+        driverMap.fitBounds(routePolyline.getBounds(), { padding: [40, 40] });
+
+        // Place marker at start
+        if (driverMarker) driverMap.removeLayer(driverMarker);
+        driverMarker = L.marker(routeCoords[0], { icon: makeBusIcon(0) }).addTo(driverMap);
+        driverMarker.bindPopup('<b>CB-101</b><br>RTO → JCER');
+
+        // Reset animation
+        animSegIdx = 0;
+        animSegT   = 0;
+        lastTs     = null;
+        routeReady = true;
+
+        cancelAnimationFrame(animFrame);
+        animFrame = requestAnimationFrame(animateMarker);
+
+        showRouteStatus('Road route loaded via OSRM ✓', 'success');
+    } catch (err) {
+        console.warn('OSRM fetch failed:', err);
+        showRouteStatus('OSRM unavailable — using fallback route', 'warn');
+        useFallbackRoute();
+    }
+}
+
+/* ── Fallback: straight-segment route (original waypoints) ── */
+function useFallbackRoute() {
+    // Densify STOPS into many sub-points for smoother animation
+    const raw = STOPS.map(s => s.latlng);
+    routeCoords = [];
+    for (let i = 0; i < raw.length - 1; i++) {
+        const steps = 40;
+        for (let t = 0; t < steps; t++) {
+            routeCoords.push([
+                raw[i][0] + (raw[i+1][0] - raw[i][0]) * (t / steps),
+                raw[i][1] + (raw[i+1][1] - raw[i][1]) * (t / steps),
+            ]);
+        }
+    }
+    routeCoords.push(raw[raw.length - 1]);
+
+    if (routePolyline) driverMap.removeLayer(routePolyline);
+    routePolyline = L.polyline(routeCoords, {
+        color: '#2D344F', weight: 6, opacity: 0.8,
+    }).addTo(driverMap);
+    driverMap.fitBounds(routePolyline.getBounds(), { padding: [40, 40] });
+
+    if (driverMarker) driverMap.removeLayer(driverMarker);
+    driverMarker = L.marker(routeCoords[0], { icon: makeBusIcon(0) }).addTo(driverMap);
+    driverMarker.bindPopup('<b>CB-101</b><br>RTO → JCER');
+
+    animSegIdx = 0; animSegT = 0; lastTs = null;
+    routeReady = true;
+    cancelAnimationFrame(animFrame);
+    animFrame = requestAnimationFrame(animateMarker);
+}
+
+/* ── Small status toast on map ── */
+function showRouteStatus(msg, type) {
+    let el = document.getElementById('routeStatus');
+    if (!el) {
+        el = document.createElement('div');
+        el.id = 'routeStatus';
+        el.style.cssText = `position:absolute;bottom:60px;left:50%;transform:translateX(-50%);
+            z-index:1000;padding:7px 16px;border-radius:20px;font-size:12px;font-weight:600;
+            font-family:'DM Sans',sans-serif;pointer-events:none;white-space:nowrap;
+            transition:opacity 0.4s;`;
+        document.getElementById('driver-map').appendChild(el);
+    }
+    el.textContent = msg;
+    el.style.background = type === 'success' ? 'rgba(34,197,94,0.9)' : 'rgba(245,158,11,0.9)';
+    el.style.color = '#fff';
+    el.style.opacity = '1';
+    setTimeout(() => { el.style.opacity = '0'; }, 3500);
+}
+
+/* ── Pause map-follow when user pans manually ── */
+driverMap.on('dragstart', () => { driverMap._mapFollowPaused = true; });
+driverMap.on('dblclick',  () => { driverMap._mapFollowPaused = false; });
+
+/* ── Kick off ── */
+fetchOSRMRoute();
+
+/* ── Location sharing ── */
+let isSharing = false;
+let watchId   = null;
+let simInterval = null;
+
+function toggleSharing() {
+    if (!isSharing) startSharing(); else stopSharing();
+}
+
+function startSharing() {
+    isSharing = true;
+    document.getElementById('shareBtn').className = 'share-btn stop';
+    document.getElementById('shareBtnIcon').innerHTML = '<path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm0,192a88,88,0,1,1,88-88A88.1,88.1,0,0,1,128,216ZM168,96H88a8,8,0,0,0-8,8v48a8,8,0,0,0,8,8h80a8,8,0,0,0,8-8V104A8,8,0,0,0,168,96Zm-8,48H96V112h64Z"/>';
+    document.getElementById('shareBtnText').textContent = 'Stop Broadcasting';
+    document.getElementById('locationCard').classList.add('sharing');
+    document.getElementById('statusBadge').className = 'status-badge online';
+    document.getElementById('statusText').textContent = 'Broadcasting';
+    document.getElementById('broadcastRing').classList.add('visible');
+    document.getElementById('trackingStatus').textContent = 'Active';
+    document.getElementById('trackingStatus').style.color = 'var(--green)';
+
+    if (navigator.geolocation) {
+        watchId = navigator.geolocation.watchPosition(onPosition, () => startSimulation(), {
+            enableHighAccuracy: true, maximumAge: 0, timeout: 8000
+        });
+    } else {
+        startSimulation();
+    }
+}
+
+function stopSharing() {
+    isSharing = false;
+    if (watchId !== null) { navigator.geolocation.clearWatch(watchId); watchId = null; }
+    if (simInterval) { clearInterval(simInterval); simInterval = null; }
+
+    document.getElementById('shareBtn').className = 'share-btn start';
+    document.getElementById('shareBtnIcon').innerHTML = '<path d="M80,128a48,48,0,1,1,48,48A48.05,48.05,0,0,1,80,128Zm48-32a32,32,0,1,0,32,32A32,32,0,0,0,128,96ZM28.67,176a103.55,103.55,0,0,1,0-96,8,8,0,0,0-14-7.76,119.55,119.55,0,0,0,0,111.52A8,8,0,0,0,28.67,176Zm193.33-48a103.55,103.55,0,0,1-14.67,52,8,8,0,1,0,13.66,8.36,119.7,119.7,0,0,0,0-120.72A8,8,0,1,0,207.33,76,103.55,103.55,0,0,1,222,128ZM69,80a8,8,0,0,0-11,2.67,87.6,87.6,0,0,0,0,90.66A8,8,0,0,0,72,176a7.91,7.91,0,0,0,2.66-.45A8,8,0,0,0,77,163.34,71.59,71.59,0,0,1,77,92.66,8,8,0,0,0,69,80Zm118,0a8,8,0,0,0-8,11.47,71.59,71.59,0,0,1,0,73A8,8,0,0,0,184,176a8,8,0,0,0,6.95-4,87.6,87.6,0,0,0,0-90.66A8,8,0,0,0,187,80Z"/>';
+    document.getElementById('shareBtnText').textContent = 'Start Broadcasting';
+    document.getElementById('locationCard').classList.remove('sharing');
+    document.getElementById('statusBadge').className = 'status-badge offline';
+    document.getElementById('statusText').textContent = 'Offline';
+    document.getElementById('broadcastRing').classList.remove('visible');
+    document.getElementById('trackingStatus').textContent = 'Off';
+    document.getElementById('trackingStatus').style.color = 'var(--muted)';
+
+    ['latDisplay','lngDisplay'].forEach(id => document.getElementById(id).textContent = '—');
+    document.getElementById('speedDisplay').textContent = '0 km/h';
+    document.getElementById('accuracyDisplay').textContent = '—';
+}
+
+function onPosition(pos) {
+    const lat = pos.coords.latitude;
+    const lng = pos.coords.longitude;
+    const spd = pos.coords.speed ? Math.round(pos.coords.speed * 3.6) : 0;
+    const acc = pos.coords.accuracy ? Math.round(pos.coords.accuracy) + 'm' : '—';
+    updateStats(lat, lng, spd, acc);
+    // Emit to backend via Socket.IO
+    if (socket && socket.connected) {
+        socket.emit('locationUpdate', {
+            lat, lng, speed: spd,
+            heading: 0,
+            busId:   localStorage.getItem('bt_busId')   || 'CB-101',
+            routeId: localStorage.getItem('bt_routeId') || 'rto',
+        });
+    }
+    // Also update driver marker on map
+    if (driverMarker) driverMarker.setLatLng([lat, lng]);
+}
+
+function startSimulation() {
+    // Simulation drives the stats display only; visual animation is handled by requestAnimationFrame loop
+    let simIdx = 0;
+    simInterval = setInterval(() => {
+        if (!routeCoords.length) return;
+        const pt = routeCoords[simIdx % routeCoords.length];
+        simIdx++;
+        const spd = 28 + Math.floor(Math.random() * 18);
+        updateStats(pt[0], pt[1], spd, '~12m');
+    }, 2500);
+}
+
+function updateStats(lat, lng, spd, acc) {
+    document.getElementById('latDisplay').textContent  = lat.toFixed(5);
+    document.getElementById('lngDisplay').textContent  = lng.toFixed(5);
+    document.getElementById('speedDisplay').textContent = spd + ' km/h';
+    document.getElementById('accuracyDisplay').textContent = acc;
+    document.getElementById('avgSpeed').textContent    = spd + ' km/h';
+}
+
+function logout() {
+    stopSharing();
+    if (socket) socket.disconnect();
+    sessionStorage.clear();
+    localStorage.clear();
+    window.location.href = 'login.html';
+}
+</script>
+</body>
+</html>

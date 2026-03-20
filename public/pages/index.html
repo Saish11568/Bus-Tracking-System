@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BusTrack — Student Dashboard</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="dashboard-container">
+
+        <!-- ══ SIDEBAR ══ -->
+        <aside class="sidebar" id="sidebar">
+
+            <div class="sidebar-header">
+                <div class="logo">
+                    <div class="logo-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M184,24H72A32,32,0,0,0,40,56V208a16,16,0,0,0,16,16H56a16,16,0,0,0,16-16V192h112v16a16,16,0,0,0,16,16h0a16,16,0,0,0,16-16V56A32,32,0,0,0,184,24ZM56,168V120H200v48ZM200,104H56V56a16,16,0,0,1,16-16H184a16,16,0,0,1,16,16ZM88,84a12,12,0,1,1-12-12A12,12,0,0,1,88,84Zm92,0a12,12,0,1,1-12-12A12,12,0,0,1,180,84Zm-8,92a12,12,0,1,1-12-12A12,12,0,0,1,172,176Zm-80,0a12,12,0,1,1-12-12A12,12,0,0,1,92,176Z"/></svg></div>
+                    <div class="logo-text">
+                        <h2>BusTrack</h2>
+                        <span>Student Portal</span>
+                    </div>
+                </div>
+                <button class="sidebar-collapse-btn" id="sidebarCollapseBtn" title="Collapse sidebar">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M165.66,202.34a8,8,0,0,1-11.32,11.32l-80-80a8,8,0,0,1,0-11.32l80-80a8,8,0,0,1,11.32,11.32L91.31,128Z"/></svg>
+                </button>
+            </div>
+
+            <nav class="sidebar-nav">
+                <p class="nav-section">MAIN</p>
+                <ul id="main-nav">
+                    <li class="active">
+                        <a href="#" data-view="routes">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M208,104a32,32,0,1,0-40,31v9a32,32,0,0,1-32,32H108.42a48.12,48.12,0,0,0-8.42-15.56V88a32,32,0,1,0-32,0v80a32,32,0,1,0,32.93.43A32.14,32.14,0,0,0,116,144h27.69A48.09,48.09,0,0,0,192,96V87A32.06,32.06,0,0,0,208,104ZM68,56A16,16,0,1,1,84,72,16,16,0,0,1,68,56Zm16,160a16,16,0,1,1,16-16A16,16,0,0,1,84,216Zm112-96a16,16,0,1,1,16-16A16,16,0,0,1,196,120Z"/></svg>
+                            <span>Routes</span>
+                            <div class="dot"></div>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#" data-view="track">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M228.92,49.69a8,8,0,0,0-6.86-1.45L160.93,63.52,99.58,32.84a8,8,0,0,0-6.46-.3L26.34,58.42A8,8,0,0,0,21,66V208a8,8,0,0,0,10.92,7.43l61.13-24.39,61.35,30.68A8.15,8.15,0,0,0,158,222a8,8,0,0,0,2.93-.55l66.8-25.88A8,8,0,0,0,235,188V56A8,8,0,0,0,228.92,49.69ZM96,55.75l64,32V200.25l-64-32ZM37,75.14l43-16.64V193.36L37,208.36ZM219,180.86l-43,16.64V62.64l43-16.64Z"/></svg>
+                            <span>Track Buses</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#" id="nav-notifications">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M221.8,175.94C216.25,166.38,208,139.33,208,104a80,80,0,1,0-160,0c0,35.34-8.26,62.38-13.81,71.94A16,16,0,0,0,48,200H88.81a40,40,0,0,0,78.38,0H208a16,16,0,0,0,13.8-24.06ZM128,216a24,24,0,0,1-22.62-16h45.24A24,24,0,0,1,128,216ZM48,184c7.7-13.24,16-43.92,16-80a64,64,0,1,1,128,0c0,36.05,8.28,66.73,16,80Z"/></svg>
+                            <span>Notifications</span>
+                        </a>
+                    </li>
+                </ul>
+
+                <!-- Admin-only section — hidden for students, visible only for admin role -->
+                <p class="nav-section mt-4 admin-only">ADMIN</p>
+                <ul class="admin-only">
+                    <li><a href="admin.html"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M184,24H72A32,32,0,0,0,40,56V208a16,16,0,0,0,16,16H56a16,16,0,0,0,16-16V192h112v16a16,16,0,0,0,16,16h0a16,16,0,0,0,16-16V56A32,32,0,0,0,184,24ZM56,168V120H200v48ZM200,104H56V56a16,16,0,0,1,16-16H184a16,16,0,0,1,16,16ZM88,84a12,12,0,1,1-12-12A12,12,0,0,1,88,84Zm92,0a12,12,0,1,1-12-12A12,12,0,0,1,180,84Zm-8,92a12,12,0,1,1-12-12A12,12,0,0,1,172,176Zm-80,0a12,12,0,1,1-12-12A12,12,0,0,1,92,176Z"/></svg> <span>Manage Buses</span></a></li>
+                    <li><a href="admin.html"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M128,80a48,48,0,1,0,48,48A48.05,48.05,0,0,0,128,80Zm0,80a32,32,0,1,1,32-32A32,32,0,0,1,128,160Zm88-29.84q.06-2.16,0-4.32l14.92-18.64a8,8,0,0,0,1.48-7.06,107.21,107.21,0,0,0-10.88-26.25,8,8,0,0,0-6-3.93l-23.72-2.64q-1.48-1.56-3-3L186,40.54a8,8,0,0,0-3.94-6,107.71,107.71,0,0,0-26.25-10.87,8,8,0,0,0-7.06,1.49L130.16,40Q128,40,125.84,40L107.2,25.11a8,8,0,0,0-7.06-1.48A107.6,107.6,0,0,0,73.89,34.51a8,8,0,0,0-3.93,6L67.32,64.27q-1.56,1.49-3,3L40.54,70a8,8,0,0,0-6,3.94,107.71,107.71,0,0,0-10.87,26.25,8,8,0,0,0,1.49,7.06L40,125.84Q40,128,40,130.16L25.11,148.8a8,8,0,0,0-1.48,7.06,107.21,107.21,0,0,0,10.88,26.25,8,8,0,0,0,6,3.93l23.72,2.64q1.49,1.56,3,3L70,215.46a8,8,0,0,0,3.94,6,107.71,107.71,0,0,0,26.25,10.87,8,8,0,0,0,7.06-1.49L125.84,216q2.16.06,4.32,0l18.64,14.92a8,8,0,0,0,7.06,1.48,107.21,107.21,0,0,0,26.25-10.88,8,8,0,0,0,3.93-6l2.64-23.72q1.56-1.48,3-3L215.46,186a8,8,0,0,0,6-3.94,107.71,107.71,0,0,0,10.87-26.25,8,8,0,0,0-1.49-7.06Zm-16.1-6.5a73.93,73.93,0,0,1,0,8.68,8,8,0,0,0,1.74,5.48l14.19,17.73a91.57,91.57,0,0,1-6.23,15L187,173.11a8,8,0,0,0-5.1,2.64,74.11,74.11,0,0,1-6.14,6.14,8,8,0,0,0-2.64,5.1l-2.51,22.58a91.32,91.32,0,0,1-15,6.23l-17.74-14.19a8,8,0,0,0-5-1.75h-.48a73.93,73.93,0,0,1-8.68,0,8,8,0,0,0-5.48,1.74L100.45,215.8a91.57,91.57,0,0,1-15-6.23L82.89,187a8,8,0,0,0-2.64-5.1,74.11,74.11,0,0,1-6.14-6.14,8,8,0,0,0-5.1-2.64L46.43,170.6a91.32,91.32,0,0,1-6.23-15l14.19-17.74a8,8,0,0,0,1.74-5.48,73.93,73.93,0,0,1,0-8.68,8,8,0,0,0-1.74-5.48L40.2,100.45a91.57,91.57,0,0,1,6.23-15L69,82.89a8,8,0,0,0,5.1-2.64,74.11,74.11,0,0,1,6.14-6.14A8,8,0,0,0,82.89,69L85.4,46.43a91.32,91.32,0,0,1,15-6.23l17.74,14.19a8,8,0,0,0,5.48,1.74,73.93,73.93,0,0,1,8.68,0,8,8,0,0,0,5.48-1.74L155.55,40.2a91.57,91.57,0,0,1,15,6.23L173.11,69a8,8,0,0,0,2.64,5.1,74.11,74.11,0,0,1,6.14,6.14,8,8,0,0,0,5.1,2.64l22.58,2.51a91.32,91.32,0,0,1,6.23,15l-14.19,17.74A8,8,0,0,0,199.87,123.66Z"/></svg> <span>Settings</span></a></li>
+                </ul>
+            </nav>
+
+            <div class="user-profile" id="userProfileBtn" role="button" tabindex="0"
+                aria-haspopup="true" aria-expanded="false" title="Profile options">
+                <div class="avatar"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M230.92,212c-15.23-26.33-38.7-45.21-66.09-54.16a72,72,0,1,0-73.66,0C63.78,166.78,40.31,185.66,25.08,212a8,8,0,1,0,13.85,8c18.84-32.56,52.14-52,89.07-52s70.23,19.44,89.07,52a8,8,0,1,0,13.85-8ZM72,96a56,56,0,1,1,56,56A56.06,56.06,0,0,1,72,96Z"/></svg></div>
+                <div class="user-info">
+                    <h4 id="sidebarUserName">Vedant Shelar</h4>
+                    <p id="sidebarUserEmail">vedshelar2006@gmail.com</p>
+                </div>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0;font-size:16px;color:var(--icon-gray);flex-shrink:0;"><path d="M116,60a12,12,0,1,1,12,12A12,12,0,0,1,116,60Zm12,56a12,12,0,1,0,12,12A12,12,0,0,0,128,116Zm0,80a12,12,0,1,0,12,12A12,12,0,0,0,128,196Z"/></svg>
+            </div>
+
+        </aside>
+
+        <!-- Profile dropdown -->
+        <div class="profile-dropdown" id="profileDropdown" role="menu">
+            <button class="profile-menu-item" id="menuYourDetails" role="menuitem">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24ZM74.08,197.5a64,64,0,0,1,107.84,0,87.83,87.83,0,0,1-107.84,0ZM96,120a32,32,0,1,1,32,32A32,32,0,0,1,96,120Zm97.76,66.41a79.66,79.66,0,0,0-36.06-28.75,48,48,0,1,0-59.4,0,79.66,79.66,0,0,0-36.06,28.75,88,88,0,1,1,131.52,0Z"/></svg><span>Your Details</span>
+            </button>
+            <button class="profile-menu-item" id="menuSettings" role="menuitem">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M128,80a48,48,0,1,0,48,48A48.05,48.05,0,0,0,128,80Zm0,80a32,32,0,1,1,32-32A32,32,0,0,1,128,160Zm88-29.84q.06-2.16,0-4.32l14.92-18.64a8,8,0,0,0,1.48-7.06,107.21,107.21,0,0,0-10.88-26.25,8,8,0,0,0-6-3.93l-23.72-2.64q-1.48-1.56-3-3L186,40.54a8,8,0,0,0-3.94-6,107.71,107.71,0,0,0-26.25-10.87,8,8,0,0,0-7.06,1.49L130.16,40Q128,40,125.84,40L107.2,25.11a8,8,0,0,0-7.06-1.48A107.6,107.6,0,0,0,73.89,34.51a8,8,0,0,0-3.93,6L67.32,64.27q-1.56,1.49-3,3L40.54,70a8,8,0,0,0-6,3.94,107.71,107.71,0,0,0-10.87,26.25,8,8,0,0,0,1.49,7.06L40,125.84Q40,128,40,130.16L25.11,148.8a8,8,0,0,0-1.48,7.06,107.21,107.21,0,0,0,10.88,26.25,8,8,0,0,0,6,3.93l23.72,2.64q1.49,1.56,3,3L70,215.46a8,8,0,0,0,3.94,6,107.71,107.71,0,0,0,26.25,10.87,8,8,0,0,0,7.06-1.49L125.84,216q2.16.06,4.32,0l18.64,14.92a8,8,0,0,0,7.06,1.48,107.21,107.21,0,0,0,26.25-10.88,8,8,0,0,0,3.93-6l2.64-23.72q1.56-1.48,3-3L215.46,186a8,8,0,0,0,6-3.94,107.71,107.71,0,0,0,10.87-26.25,8,8,0,0,0-1.49-7.06Zm-16.1-6.5a73.93,73.93,0,0,1,0,8.68,8,8,0,0,0,1.74,5.48l14.19,17.73a91.57,91.57,0,0,1-6.23,15L187,173.11a8,8,0,0,0-5.1,2.64,74.11,74.11,0,0,1-6.14,6.14,8,8,0,0,0-2.64,5.1l-2.51,22.58a91.32,91.32,0,0,1-15,6.23l-17.74-14.19a8,8,0,0,0-5-1.75h-.48a73.93,73.93,0,0,1-8.68,0,8,8,0,0,0-5.48,1.74L100.45,215.8a91.57,91.57,0,0,1-15-6.23L82.89,187a8,8,0,0,0-2.64-5.1,74.11,74.11,0,0,1-6.14-6.14,8,8,0,0,0-5.1-2.64L46.43,170.6a91.32,91.32,0,0,1-6.23-15l14.19-17.74a8,8,0,0,0,1.74-5.48,73.93,73.93,0,0,1,0-8.68,8,8,0,0,0-1.74-5.48L40.2,100.45a91.57,91.57,0,0,1,6.23-15L69,82.89a8,8,0,0,0,5.1-2.64,74.11,74.11,0,0,1,6.14-6.14A8,8,0,0,0,82.89,69L85.4,46.43a91.32,91.32,0,0,1,15-6.23l17.74,14.19a8,8,0,0,0,5.48,1.74,73.93,73.93,0,0,1,8.68,0,8,8,0,0,0,5.48-1.74L155.55,40.2a91.57,91.57,0,0,1,15,6.23L173.11,69a8,8,0,0,0,2.64,5.1,74.11,74.11,0,0,1,6.14,6.14,8,8,0,0,0,5.1,2.64l22.58,2.51a91.32,91.32,0,0,1,6.23,15l-14.19,17.74A8,8,0,0,0,199.87,123.66Z"/></svg><span>Settings</span>
+            </button>
+            <button class="profile-menu-item" id="menuHelp" role="menuitem">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M140,180a12,12,0,1,1-12-12A12,12,0,0,1,140,180ZM128,72c-22.06,0-40,16.15-40,36v4a8,8,0,0,0,16,0v-4c0-11,10.77-20,24-20s24,9,24,20-10.77,20-24,20a8,8,0,0,0-8,8v8a8,8,0,0,0,16,0v-.72c18.24-3.35,32-17.9,32-35.28C168,88.15,150.06,72,128,72Zm104,56A104,104,0,1,1,128,24,104.11,104.11,0,0,1,232,128Zm-16,0a88,88,0,1,0-88,88A88.1,88.1,0,0,0,216,128Z"/></svg><span>Help &amp; Support</span>
+            </button>
+            <div class="dropdown-divider"></div>
+            <button class="profile-menu-item danger" id="menuLogout" role="menuitem">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M120,216a8,8,0,0,1-8,8H48a16,16,0,0,1-16-16V48A16,16,0,0,1,48,32h64a8,8,0,0,1,0,16H48V208h64A8,8,0,0,1,120,216Zm109.66-93.66-40-40a8,8,0,0,0-11.32,11.32L204.69,120H112a8,8,0,0,0,0,16h92.69l-26.35,26.34a8,8,0,0,0,11.32,11.32l40-40A8,8,0,0,0,229.66,122.34Z"/></svg><span>Log Out</span>
+            </button>
+        </div>
+
+        <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+        <!-- ══ MAIN CONTENT ══ -->
+        <main class="main-content">
+
+            <!-- Topbar -->
+            <header class="topbar">
+                <button class="sidebar-toggle-btn" id="sidebarToggleBtn">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M224,128a8,8,0,0,1-8,8H40a8,8,0,0,1,0-16H216A8,8,0,0,1,224,128ZM40,72H216a8,8,0,0,0,0-16H40a8,8,0,0,0,0,16ZM216,184H40a8,8,0,0,0,0,16H216a8,8,0,0,0,0-16Z"/></svg>
+                </button>
+                <button id="topBackBtn" class="top-back-btn" style="display:none;" title="Back to Routes">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M165.66,202.34a8,8,0,0,1-11.32,11.32l-80-80a8,8,0,0,1,0-11.32l80-80a8,8,0,0,1,11.32,11.32L91.31,128Z"/></svg>
+                </button>
+                <div class="search-bar">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M229.66,218.34l-50.07-50.06a88.11,88.11,0,1,0-11.31,11.31l50.06,50.07a8,8,0,0,0,11.32-11.32ZM40,112a72,72,0,1,1,72,72A72.08,72.08,0,0,1,40,112Z"/></svg>
+                    <input type="text" placeholder="Search route or bus…" id="mainSearchInput">
+                </div>
+                <button class="notification-btn" id="topNotificationBtn" title="Notifications">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M221.8,175.94C216.25,166.38,208,139.33,208,104a80,80,0,1,0-160,0c0,35.34-8.26,62.38-13.81,71.94A16,16,0,0,0,48,200H88.81a40,40,0,0,0,78.38,0H208a16,16,0,0,0,13.8-24.06ZM128,216a24,24,0,0,1-22.62-16h45.24A24,24,0,0,1,128,216ZM48,184c7.7-13.24,16-43.92,16-80a64,64,0,1,1,128,0c0,36.05,8.28,66.73,16,80Z"/></svg>
+                    <span class="badge"></span>
+                </button>
+            </header>
+
+            <!-- ══ Routes View ══ -->
+            <div id="view-routes" class="page-view active routes-view">
+                <!-- Left Selection Panel -->
+                <div class="route-selection-panel">
+                    <div class="selection-header">
+                        <h1>Select Your Route</h1>
+                        <p>Choose a bus route to track live</p>
+                    </div>
+
+                    <div class="location-inputs">
+                        <div class="input-group">
+                            <div class="icon-dot"></div>
+                            <input type="text" placeholder="Your location" value="Current Location">
+                        </div>
+                        <div class="connector-line"></div>
+                        <div class="input-group">
+                            <div class="icon-square"></div>
+                            <input type="text" placeholder="Destination" value="JCER Campus">
+                        </div>
+                    </div>
+
+                    <div class="routes-container">
+                        <div class="routes-label">Available Routes</div>
+                        <div class="routes-list-wrapper">
+                            <div class="route-sliding-bar" id="routeIndicator"></div>
+
+                            <div class="route-item active" data-route="rto">
+                                <div class="route-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M184,24H72A32,32,0,0,0,40,56V208a16,16,0,0,0,16,16H56a16,16,0,0,0,16-16V192h112v16a16,16,0,0,0,16,16h0a16,16,0,0,0,16-16V56A32,32,0,0,0,184,24ZM56,168V120H200v48ZM200,104H56V56a16,16,0,0,1,16-16H184a16,16,0,0,1,16,16ZM88,84a12,12,0,1,1-12-12A12,12,0,0,1,88,84Zm92,0a12,12,0,1,1-12-12A12,12,0,0,1,180,84Zm-8,92a12,12,0,1,1-12-12A12,12,0,0,1,172,176Zm-80,0a12,12,0,1,1-12-12A12,12,0,0,1,92,176Z"/></svg></div>
+                                <div class="route-info">
+                                    <div class="route-name">R.T.O</div>
+                                    <div class="route-meta">12 Stops · ~35 mins · CB-101</div>
+                                </div>
+                                <div class="route-price">Live</div>
+                            </div>
+
+                            <div class="route-item" data-route="sambra">
+                                <div class="route-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M184,24H72A32,32,0,0,0,40,56V208a16,16,0,0,0,16,16H56a16,16,0,0,0,16-16V192h112v16a16,16,0,0,0,16,16h0a16,16,0,0,0,16-16V56A32,32,0,0,0,184,24ZM56,168V120H200v48ZM200,104H56V56a16,16,0,0,1,16-16H184a16,16,0,0,1,16,16ZM88,84a12,12,0,1,1-12-12A12,12,0,0,1,88,84Zm92,0a12,12,0,1,1-12-12A12,12,0,0,1,180,84Zm-8,92a12,12,0,1,1-12-12A12,12,0,0,1,172,176Zm-80,0a12,12,0,1,1-12-12A12,12,0,0,1,92,176Z"/></svg></div>
+                                <div class="route-info">
+                                    <div class="route-name">Sambra</div>
+                                    <div class="route-meta">8 Stops · ~42 mins · CB-102</div>
+                                </div>
+                                <div class="route-price">Live</div>
+                            </div>
+
+                            <div class="route-item" data-route="mahantesh">
+                                <div class="route-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M184,24H72A32,32,0,0,0,40,56V208a16,16,0,0,0,16,16H56a16,16,0,0,0,16-16V192h112v16a16,16,0,0,0,16,16h0a16,16,0,0,0,16-16V56A32,32,0,0,0,184,24ZM56,168V120H200v48ZM200,104H56V56a16,16,0,0,1,16-16H184a16,16,0,0,1,16,16ZM88,84a12,12,0,1,1-12-12A12,12,0,0,1,88,84Zm92,0a12,12,0,1,1-12-12A12,12,0,0,1,180,84Zm-8,92a12,12,0,1,1-12-12A12,12,0,0,1,172,176Zm-80,0a12,12,0,1,1-12-12A12,12,0,0,1,92,176Z"/></svg></div>
+                                <div class="route-info">
+                                    <div class="route-name">Mahantesh Nagar</div>
+                                    <div class="route-meta">10 Stops · ~28 mins · CB-103</div>
+                                </div>
+                                <div class="route-price">Live</div>
+                            </div>
+
+                            <div class="route-item" data-route="vadagaon">
+                                <div class="route-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M184,24H72A32,32,0,0,0,40,56V208a16,16,0,0,0,16,16H56a16,16,0,0,0,16-16V192h112v16a16,16,0,0,0,16,16h0a16,16,0,0,0,16-16V56A32,32,0,0,0,184,24ZM56,168V120H200v48ZM200,104H56V56a16,16,0,0,1,16-16H184a16,16,0,0,1,16,16ZM88,84a12,12,0,1,1-12-12A12,12,0,0,1,88,84Zm92,0a12,12,0,1,1-12-12A12,12,0,0,1,180,84Zm-8,92a12,12,0,1,1-12-12A12,12,0,0,1,172,176Zm-80,0a12,12,0,1,1-12-12A12,12,0,0,1,92,176Z"/></svg></div>
+                                <div class="route-info">
+                                    <div class="route-name">Vadagaon</div>
+                                    <div class="route-meta">10 Stops · ~32 mins · CB-104</div>
+                                </div>
+                                <div class="route-price">Live</div>
+                            </div>
+
+                            <div class="route-item" data-route="hanuman">
+                                <div class="route-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M184,24H72A32,32,0,0,0,40,56V208a16,16,0,0,0,16,16H56a16,16,0,0,0,16-16V192h112v16a16,16,0,0,0,16,16h0a16,16,0,0,0,16-16V56A32,32,0,0,0,184,24ZM56,168V120H200v48ZM200,104H56V56a16,16,0,0,1,16-16H184a16,16,0,0,1,16,16ZM88,84a12,12,0,1,1-12-12A12,12,0,0,1,88,84Zm92,0a12,12,0,1,1-12-12A12,12,0,0,1,180,84Zm-8,92a12,12,0,1,1-12-12A12,12,0,0,1,172,176Zm-80,0a12,12,0,1,1-12-12A12,12,0,0,1,92,176Z"/></svg></div>
+                                <div class="route-info">
+                                    <div class="route-name">Hanuman Nagar</div>
+                                    <div class="route-meta">15 Stops · ~50 mins · CB-105</div>
+                                </div>
+                                <div class="route-price">Live</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button class="search-confirm-btn" id="confirmRouteBtn">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0;margin-right:8px;font-size:16px;"><path d="M228.92,49.69a8,8,0,0,0-6.86-1.45L160.93,63.52,99.58,32.84a8,8,0,0,0-6.46-.3L26.34,58.42A8,8,0,0,0,21,66V208a8,8,0,0,0,10.92,7.43l61.13-24.39,61.35,30.68A8.15,8.15,0,0,0,158,222a8,8,0,0,0,2.93-.55l66.8-25.88A8,8,0,0,0,235,188V56A8,8,0,0,0,228.92,49.69ZM96,55.75l64,32V200.25l-64-32ZM37,75.14l43-16.64V193.36L37,208.36ZM219,180.86l-43,16.64V62.64l43-16.64Z"/></svg>
+                        Track Selected Bus
+                    </button>
+                </div>
+
+                <!-- Right Map -->
+                <div class="routes-map-container">
+                    <div id="dashboard-map"></div>
+                </div>
+            </div>
+
+            <!-- ══ Track Buses View ══ -->
+            <div id="view-track" class="page-view track-view">
+                <!-- Track header showing selected route info -->
+                <div class="track-header">
+                    <div class="track-route-info">
+                        <div class="track-route-badge" id="trackRouteBadge">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M184,24H72A32,32,0,0,0,40,56V208a16,16,0,0,0,16,16H56a16,16,0,0,0,16-16V192h112v16a16,16,0,0,0,16,16h0a16,16,0,0,0,16-16V56A32,32,0,0,0,184,24ZM56,168V120H200v48ZM200,104H56V56a16,16,0,0,1,16-16H184a16,16,0,0,1,16,16ZM88,84a12,12,0,1,1-12-12A12,12,0,0,1,88,84Zm92,0a12,12,0,1,1-12-12A12,12,0,0,1,180,84Zm-8,92a12,12,0,1,1-12-12A12,12,0,0,1,172,176Zm-80,0a12,12,0,1,1-12-12A12,12,0,0,1,92,176Z"/></svg> R.T.O
+                        </div>
+                        <div class="track-bus-label" id="trackBusLabel">
+                            Bus <span>CB-101</span>
+                        </div>
+                    </div>
+                    <div class="live-indicator">
+                        <div class="live-dot"></div>
+                        Live Tracking
+                    </div>
+                </div>
+                <div class="map-container">
+                    <div id="map"></div>
+                </div>
+            </div>
+
+            <!-- ══ Notification Drawer ══ -->
+            <div class="notification-drawer" id="notificationDrawer">
+                <div class="drawer-header">
+                    <h3><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M221.8,175.94C216.25,166.38,208,139.33,208,104a80,80,0,1,0-160,0c0,35.34-8.26,62.38-13.81,71.94A16,16,0,0,0,48,200H88.81a40,40,0,0,0,78.38,0H208a16,16,0,0,0,13.8-24.06ZM128,216a24,24,0,0,1-22.62-16h45.24A24,24,0,0,1,128,216ZM48,184c7.7-13.24,16-43.92,16-80a64,64,0,1,1,128,0c0,36.05,8.28,66.73,16,80Z"/></svg> Notifications</h3>
+                    <button class="close-drawer-btn" id="closeDrawer"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M205.66,194.34a8,8,0,0,1-11.32,11.32L128,139.31,61.66,205.66a8,8,0,0,1-11.32-11.32L116.69,128,50.34,61.66A8,8,0,0,1,61.66,50.34L128,116.69l66.34-66.35a8,8,0,0,1,11.32,11.32L139.31,128Z"/></svg></button>
+                </div>
+                <div class="drawer-content">
+                    <div class="notification-item">
+                        <div class="noti-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M184,24H72A32,32,0,0,0,40,56V208a16,16,0,0,0,16,16H56a16,16,0,0,0,16-16V192h112v16a16,16,0,0,0,16,16h0a16,16,0,0,0,16-16V56A32,32,0,0,0,184,24ZM56,168V120H200v48ZM200,104H56V56a16,16,0,0,1,16-16H184a16,16,0,0,1,16,16ZM88,84a12,12,0,1,1-12-12A12,12,0,0,1,88,84Zm92,0a12,12,0,1,1-12-12A12,12,0,0,1,180,84Zm-8,92a12,12,0,1,1-12-12A12,12,0,0,1,172,176Zm-80,0a12,12,0,1,1-12-12A12,12,0,0,1,92,176Z"/></svg></div>
+                        <div class="noti-body">
+                            <h4>CB-101 Arriving Soon</h4>
+                            <p>Approaching Mahantesh Nagar stop</p>
+                            <div class="progress-bar-container">
+                                <div class="progress-bar running" style="width:80%"></div>
+                            </div>
+                        </div>
+                        <span class="noti-time">Just now</span>
+                    </div>
+                    <div class="notification-item">
+                        <div class="noti-icon warning"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M236,128A108,108,0,1,1,128,20,108.12,108.12,0,0,1,236,128Zm-16,0a92,92,0,1,0-92,92A92.1,92.1,0,0,0,220,128Zm-84,24a8,8,0,0,1-8,8,16,16,0,0,1-16-16V128a8,8,0,0,1,0-16,16,16,0,0,1,16,16v16A8,8,0,0,1,136,152Zm-24-72a12,12,0,1,1,12,12A12,12,0,0,1,112,80Z"/></svg></div>
+                        <div class="noti-body">
+                            <h4>CB-103 Delayed</h4>
+                            <p>Heavy traffic on Mahantesh route — ~15 min delay</p>
+                            <div class="progress-bar-container">
+                                <div class="progress-bar warning pulsing" style="width:100%"></div>
+                            </div>
+                        </div>
+                        <span class="noti-time">5m ago</span>
+                    </div>
+                    <div class="notification-item">
+                        <div class="noti-icon system"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M240,56v48a8,8,0,0,1-8,8H184a8,8,0,0,1,0-16h28.69L195.88,79.06A96,96,0,1,0,224,152a8,8,0,1,1,16,0A112,112,0,1,1,210.08,66.94L224,80.67V56a8,8,0,0,1,16,0Z"/></svg></div>
+                        <div class="noti-body">
+                            <h4>Schedule Sync</h4>
+                            <p>Updating bus schedules for today…</p>
+                            <div class="progress-bar-container">
+                                <div class="progress-bar system indeterminate"></div>
+                            </div>
+                        </div>
+                        <span class="noti-time">Running</span>
+                    </div>
+                    <div class="notification-item">
+                        <div class="noti-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M173.66,98.34a8,8,0,0,1,0,11.32l-56,56a8,8,0,0,1-11.32,0l-24-24a8,8,0,0,1,11.32-11.32L112,148.69l50.34-50.35A8,8,0,0,1,173.66,98.34ZM232,128A104,104,0,1,1,128,24,104.11,104.11,0,0,1,232,128Zm-16,0a88,88,0,1,0-88,88A88.1,88.1,0,0,0,216,128Z"/></svg></div>
+                        <div class="noti-body">
+                            <h4>Route Optimized</h4>
+                            <p>Hanuman Nagar route updated for low traffic.</p>
+                        </div>
+                        <span class="noti-time">1h ago</span>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- ══ Profile Modal ══ -->
+    <div class="profile-modal-overlay" id="profileModal">
+        <div class="profile-modal">
+            <button class="profile-modal-close" id="profileModalClose" aria-label="Close">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M205.66,194.34a8,8,0,0,1-11.32,11.32L128,139.31,61.66,205.66a8,8,0,0,1-11.32-11.32L116.69,128,50.34,61.66A8,8,0,0,1,61.66,50.34L128,116.69l66.34-66.35a8,8,0,0,1,11.32,11.32L139.31,128Z"/></svg>
+            </button>
+            <div class="profile-modal-header">
+                <div class="profile-modal-avatar">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M230.92,212c-15.23-26.33-38.7-45.21-66.09-54.16a72,72,0,1,0-73.66,0C63.78,166.78,40.31,185.66,25.08,212a8,8,0,1,0,13.85,8c18.84-32.56,52.14-52,89.07-52s70.23,19.44,89.07,52a8,8,0,1,0,13.85-8ZM72,96a56,56,0,1,1,56,56A56.06,56.06,0,0,1,72,96Z"/></svg>
+                </div>
+                <h2>Vedant Shelar</h2>
+                <p>Student · Bus Tracking System</p>
+            </div>
+            <div class="profile-modal-body">
+                <div class="profile-detail-row">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M224,48H32a8,8,0,0,0-8,8V192a16,16,0,0,0,16,16H216a16,16,0,0,0,16-16V56A8,8,0,0,0,224,48ZM203.43,64,128,133.15,52.57,64ZM216,192H40V74.19l82.59,75.71a8,8,0,0,0,10.82,0L216,74.19V192Z"/></svg>
+                    <div>
+                        <span class="detail-label">Email</span>
+                        <span class="detail-value">vedshelar2006@gmail.com</span>
+                    </div>
+                </div>
+                <div class="profile-detail-row">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M248,56a16,16,0,0,0-16-16H24A16,16,0,0,0,8,56V200a16,16,0,0,0,16,16H232a16,16,0,0,0,16-16ZM232,200H24V56H232ZM80,144a32,32,0,1,0-32-32A32,32,0,0,0,80,144Zm0-48a16,16,0,1,1-16,16A16,16,0,0,1,80,96Zm0,64A56.06,56.06,0,0,0,24,216a8,8,0,0,0,16,0,40,40,0,0,1,80,0,8,8,0,0,0,16,0A56.06,56.06,0,0,0,80,160Zm104-64H152a8,8,0,0,0,0,16h32a8,8,0,0,0,0-16Zm8,40H152a8,8,0,0,0,0,16h40a8,8,0,0,0,0-16Z"/></svg>
+                    <div>
+                        <span class="detail-label">Student ID</span>
+                        <span class="detail-value">STU-2024-0042</span>
+                    </div>
+                </div>
+                <div class="profile-detail-row">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M208,104a32,32,0,1,0-40,31v9a32,32,0,0,1-32,32H108.42a48.12,48.12,0,0,0-8.42-15.56V88a32,32,0,1,0-32,0v80a32,32,0,1,0,32.93.43A32.14,32.14,0,0,0,116,144h27.69A48.09,48.09,0,0,0,192,96V87A32.06,32.06,0,0,0,208,104ZM68,56A16,16,0,1,1,84,72,16,16,0,0,1,68,56Zm16,160a16,16,0,1,1,16-16A16,16,0,0,1,84,216Zm112-96a16,16,0,1,1,16-16A16,16,0,0,1,196,120Z"/></svg>
+                    <div>
+                        <span class="detail-label">Assigned Route</span>
+                        <span class="detail-value">RTO – College Campus</span>
+                    </div>
+                </div>
+                <div class="profile-detail-row">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M222.37,158.46l-47.11-21.11-.13-.06a16,16,0,0,0-15.17,1.4,8.12,8.12,0,0,0-.75.56L134.87,160c-15.42-7.49-31.34-23.29-38.83-38.51l20.78-24.71c.2-.25.39-.5.57-.77a16,16,0,0,0,1.32-15.06l0-.12L97.54,33.64a16,16,0,0,0-16.62-9.52A56.26,56.26,0,0,0,32,80c0,79.4,64.6,144,144,144a56.26,56.26,0,0,0,55.88-48.92A16,16,0,0,0,222.37,158.46ZM176,208A128.14,128.14,0,0,1,48,80,40.2,40.2,0,0,1,82.87,40a.61.61,0,0,0,0,.12l21,47L83.2,111.86a6.13,6.13,0,0,0-.57.77,16,16,0,0,0-1,15.7c9.06,18.67,27.67,37.1,46.59,46.16a16,16,0,0,0,15.87-1.15,6.92,6.92,0,0,0,.74-.57L170,151.47l47,21.05h0A40.21,40.21,0,0,1,176,208Z"/></svg>
+                    <div>
+                        <span class="detail-label">Phone</span>
+                        <span class="detail-value">+91 98765 43210</span>
+                    </div>
+                </div>
+                <div class="profile-detail-row">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M128,16a96,96,0,1,0,96,96A96.11,96.11,0,0,0,128,16Zm0,176a80,80,0,1,1,80-80A80.09,80.09,0,0,1,128,192Zm32-80a32,32,0,1,1-32-32A32,32,0,0,1,160,112Z"/></svg>
+                    <div>
+                        <span class="detail-label">Pickup Stop</span>
+                        <span class="detail-value">Mahantesh Nagar</span>
+                    </div>
+                </div>
+            </div>
+            <button class="profile-edit-btn" onclick="alert('Edit profile coming soon!')">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M227.31,73.37,182.63,28.68a16,16,0,0,0-22.63,0L36.69,152A15.86,15.86,0,0,0,32,163.31V208a16,16,0,0,0,16,16H92.69A15.86,15.86,0,0,0,104,219.31L227.31,96a16,16,0,0,0,0-22.63ZM92.69,208H48V163.31l88-88L180.69,120ZM192,108.68,147.31,64l24-24L216,84.68Z"/></svg> Edit Profile
+            </button>
+        </div>
+    </div>
+
+    <!-- ══ Help Modal ══ -->
+    <div class="profile-modal-overlay" id="helpModal">
+        <div class="profile-modal">
+            <button class="profile-modal-close" id="helpModalClose" aria-label="Close">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M205.66,194.34a8,8,0,0,1-11.32,11.32L128,139.31,61.66,205.66a8,8,0,0,1-11.32-11.32L116.69,128,50.34,61.66A8,8,0,0,1,61.66,50.34L128,116.69l66.34-66.35a8,8,0,0,1,11.32,11.32L139.31,128Z"/></svg>
+            </button>
+            <div class="profile-modal-header">
+                <div class="profile-modal-avatar" style="background:linear-gradient(135deg,#3A52A8,#2C3E7A)">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M140,180a12,12,0,1,1-12-12A12,12,0,0,1,140,180ZM128,72c-22.06,0-40,16.15-40,36v4a8,8,0,0,0,16,0v-4c0-11,10.77-20,24-20s24,9,24,20-10.77,20-24,20a8,8,0,0,0-8,8v8a8,8,0,0,0,16,0v-.72c18.24-3.35,32-17.9,32-35.28C168,88.15,150.06,72,128,72Zm104,56A104,104,0,1,1,128,24,104.11,104.11,0,0,1,232,128Zm-16,0a88,88,0,1,0-88,88A88.1,88.1,0,0,0,216,128Z"/></svg>
+                </div>
+                <h2>Help &amp; Support</h2>
+                <p>We're here to help you</p>
+            </div>
+            <div class="profile-modal-body">
+                <div class="profile-detail-row">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M116,128a12,12,0,1,1-12-12A12,12,0,0,1,116,128Zm16-12a12,12,0,1,0,12,12A12,12,0,0,0,132,116Zm36,0a12,12,0,1,0,12,12A12,12,0,0,0,168,116Zm60,12A100,100,0,1,1,128,28,100.11,100.11,0,0,1,228,128Zm-16,0a84,84,0,1,0-84,84A84.09,84.09,0,0,0,212,128Z"/></svg>
+                    <div>
+                        <span class="detail-label">Support Chat</span>
+                        <span class="detail-value">Available 9AM – 6PM weekdays</span>
+                    </div>
+                </div>
+                <div class="profile-detail-row">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M224,48H32a8,8,0,0,0-8,8V192a16,16,0,0,0,16,16H216a16,16,0,0,0,16-16V56A8,8,0,0,0,224,48ZM203.43,64,128,133.15,52.57,64ZM216,192H40V74.19l82.59,75.71a8,8,0,0,0,10.82,0L216,74.19V192Z"/></svg>
+                    <div>
+                        <span class="detail-label">Email Support</span>
+                        <span class="detail-value">support@bustrack.edu</span>
+                    </div>
+                </div>
+                <div class="profile-detail-row">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" style="width:1em;height:1em;fill:currentColor;display:inline-block;vertical-align:-0.125em;flex-shrink:0"><path d="M222.37,158.46l-47.11-21.11-.13-.06a16,16,0,0,0-15.17,1.4,8.12,8.12,0,0,0-.75.56L134.87,160c-15.42-7.49-31.34-23.29-38.83-38.51l20.78-24.71c.2-.25.39-.5.57-.77a16,16,0,0,0,1.32-15.06l0-.12L97.54,33.64a16,16,0,0,0-16.62-9.52A56.26,56.26,0,0,0,32,80c0,79.4,64.6,144,144,144a56.26,56.26,0,0,0,55.88-48.92A16,16,0,0,0,222.37,158.46ZM176,208A128.14,128.14,0,0,1,48,80,40.2,40.2,0,0,1,82.87,40a.61.61,0,0,0,0,.12l21,47L83.2,111.86a6.13,6.13,0,0,0-.57.77,16,16,0,0,0-1,15.7c9.06,18.67,27.67,37.1,46.59,46.16a16,16,0,0,0,15.87-1.15,6.92,6.92,0,0,0,.74-.57L170,151.47l47,21.05h0A40.21,40.21,0,0,1,176,208Z"/></svg>
+                    <div>
+                        <span class="detail-label">Helpline</span>
+                        <span class="detail-value">1800-BUS-TRACK</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+    <script>
+        // Auth guard
+        if (sessionStorage.getItem("bt_role") !== "student") {
+            window.location.href = "login.html";
+        }
+
+        /* ── Socket.IO: subscribe to student's assigned route ── */
+        const socket = io("http://localhost:5000");
+        const btRouteId = localStorage.getItem("bt_routeId") || "rto";
+        const btToken   = localStorage.getItem("bt_token") || "";
+
+        socket.on("connect", () => {
+            socket.emit("watchRoute", { routeId: btRouteId });
+            console.log("Student socket connected, watching route:", btRouteId);
+        });
+
+        socket.on("busLocation", (data) => {
+            // Forward to script.js listener via CustomEvent
+            window.dispatchEvent(new CustomEvent("liveBusLocation", { detail: data }));
+        });
+
+        socket.on("newAlert", (alert) => {
+            window.dispatchEvent(new CustomEvent("liveAlert", { detail: alert }));
+        });
+
+        socket.on("busStatusUpdate", (data) => {
+            window.dispatchEvent(new CustomEvent("busStatusUpdate", { detail: data }));
+        });
+
+        /* ── Populate student name ── */
+        const btName = localStorage.getItem("bt_name");
+        if (btName) {
+            document.querySelectorAll(".student-name, #studentName").forEach(el => el.textContent = btName);
+        }
+
+        function logout() {
+            if (typeof socket !== "undefined") socket.disconnect();
+            sessionStorage.clear();
+            localStorage.clear();
+            window.location.href = "login.html";
+        }
+    </script>
+</body>
+</html>
